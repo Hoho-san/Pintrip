@@ -32,6 +32,36 @@
   --shadow-lg: 0 12px 32px oklch(0.2 0.01 80 / 0.12);
 
   --transition: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Semantic color tokens — light mode */
+  --color-bg:           #f7f6f2;
+  --color-surface:      #f9f8f5;
+  --color-surface-2:    #fbfbf9;
+  --color-offset:       #f3f0ec;
+  --color-border:       #d4d1ca;
+  --color-text:         #28251d;
+  --color-text-muted:   #7a7974;
+  --color-primary:      #01696f;
+  --color-primary-hover:#0c4e54;
+  --color-primary-light:#cedcd8;
+}
+
+/* Dark mode token overrides */
+.dark {
+  --color-bg:           #171614;
+  --color-surface:      #1c1b19;
+  --color-surface-2:    #201f1d;
+  --color-offset:       #22211f;
+  --color-border:       #393836;
+  --color-text:         #cdccca;
+  --color-text-muted:   #797876;
+  --color-primary:      #4f98a3;
+  --color-primary-hover:#227f8b;
+  --color-primary-light:#313b3b;
+
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.25);
+  --shadow-md: 0 4px 12px oklch(0 0 0 / 0.35);
+  --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.45);
 }
 
 /* ── Base reset ─────────────────────────────────────────────── */
@@ -48,13 +78,14 @@ body {
   min-height: 100dvh;
   font-family: var(--font-body);
   font-size: var(--text-base);
-  color: #28251d;
-  background-color: #f7f6f2;
+  color: var(--color-text);
+  background-color: var(--color-bg);
   line-height: 1.6;
+  transition: background-color 200ms ease, color 200ms ease;
 }
 
 :focus-visible {
-  outline: 2px solid #01696f;
+  outline: 2px solid var(--color-primary);
   outline-offset: 3px;
   border-radius: var(--radius-sm);
 }
@@ -68,6 +99,9 @@ body {
   cursor: pointer;
   transition: transform var(--transition), box-shadow var(--transition);
   width: 52px;
+}
+.dark .polaroid-pin {
+  background: #2d2c2a;
 }
 .polaroid-pin:hover {
   transform: scale(1.08) rotate(-1deg);
@@ -83,7 +117,7 @@ body {
 .polaroid-pin .pin-label {
   font-size: 8px;
   text-align: center;
-  color: #7a7974;
+  color: var(--color-text-muted);
   margin-top: 3px;
   overflow: hidden;
   white-space: nowrap;
@@ -99,11 +133,14 @@ body {
   width: 52px;
   transition: transform var(--transition);
 }
+.dark .polaroid-pin-empty {
+  background: #2d2c2a;
+}
 .polaroid-pin-empty:hover { transform: scale(1.08); }
 .polaroid-pin-empty .pin-dot {
   width: 44px;
   height: 36px;
-  background: #cedcd8;
+  background: var(--color-primary-light);
   border-radius: 1px;
   display: flex;
   align-items: center;
@@ -113,7 +150,7 @@ body {
 /* ── Scrollbar ──────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #d4d1ca; border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: var(--radius-full); }
 
 /* ── Animations ─────────────────────────────────────────────── */
 @keyframes fadeIn {
@@ -127,8 +164,27 @@ body {
   100% { background-position:  200% 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, #f3f0ec 25%, #e6e4df 50%, #f3f0ec 75%);
+  background: linear-gradient(90deg, var(--color-offset) 25%, #d4d1ca 50%, var(--color-offset) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: var(--radius-sm);
+}
+.dark .skeleton {
+  background: linear-gradient(90deg, #22211f 25%, #2d2c2a 50%, #22211f 75%);
+  background-size: 200% 100%;
+}
+
+/* ── Leaflet map dark tiles ─────────────────────────────────── */
+.dark .leaflet-tile {
+  filter: brightness(0.65) invert(1) contrast(1.2) hue-rotate(200deg) saturate(0.4) brightness(0.75);
+}
+.dark .leaflet-container {
+  background: #171614;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

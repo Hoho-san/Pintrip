@@ -5,7 +5,6 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Nexus Design System — Hydra Teal primary
         primary: {
           DEFAULT: '#01696f',
           hover:   '#0c4e54',
@@ -17,12 +16,31 @@ export default {
           DEFAULT: '#f9f8f5',
           2:       '#fbfbf9',
           offset:  '#f3f0ec',
+          dynamic: '#e6e4df',
         },
-        border: '#d4d1ca',
+        border:  '#d4d1ca',
         text: {
           DEFAULT: '#28251d',
           muted:   '#7a7974',
           faint:   '#bab9b4',
+          inverse: '#f9f8f4',
+        },
+        // Dark mode palette
+        dark: {
+          bg:             '#171614',
+          surface:        '#1c1b19',
+          'surface-2':    '#201f1d',
+          offset:         '#1d1c1a',
+          offset2:        '#22211f',
+          dynamic:        '#2d2c2a',
+          border:         '#393836',
+          divider:        '#262523',
+          primary:        '#4f98a3',
+          'primary-hover':'#227f8b',
+          light:          '#313b3b',
+          text:           '#cdccca',
+          muted:          '#797876',
+          faint:          '#5a5957',
         },
       },
       fontFamily: {

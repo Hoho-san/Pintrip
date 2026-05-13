@@ -18,10 +18,11 @@ export default function App() {
   // Loading state
   if (session === undefined) {
     return (
-      <div className="flex h-screen items-center justify-center bg-surface-bg">
+      // In the loading return block, change:
+      <div className="flex h-screen items-center justify-center bg-surface-bg dark:bg-dark-bg">
         <div className="flex flex-col items-center gap-3">
           <PintripLogo />
-          <p className="text-sm text-text-muted">Loading…</p>
+          <p className="text-sm text-text-muted dark:text-dark-muted">Loading…</p>
         </div>
       </div>
     )

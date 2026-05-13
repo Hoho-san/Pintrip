@@ -1,15 +1,20 @@
 import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { useTheme } from '../../ThemeContext'
 
 export default function NavBar({ session }) {
   const loc = useLocation()
+  const { theme, toggle } = useTheme()
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-[1000] h-12 bg-surface-bg/90 backdrop-blur border-b border-border flex items-center px-4 gap-6">
+    <header className="fixed top-0 left-0 right-0 z-[1000] h-12
+                        bg-surface-bg/90 dark:bg-dark-bg/90
+                        backdrop-blur border-b border-border dark:border-dark-border
+                        flex items-center px-4 gap-6">
       {/* Logo */}
       <Link to="/" className="flex items-center gap-2 no-underline">
         <PintripLogoSmall />
-        <span className="font-display text-lg font-medium text-text">Pintrip</span>
+        <span className="font-display text-lg font-medium text-text dark:text-dark-text">Pintrip</span>
       </Link>
 
       {/* Nav links */}
@@ -19,13 +24,43 @@ export default function NavBar({ session }) {
       </nav>
 
       {/* Right side */}
-      <div className="ml-auto flex items-center gap-3">
-        <span className="text-xs text-text-muted hidden sm:block truncate max-w-[180px]">
+      <div className="ml-auto flex items-center gap-2">
+        <span className="text-xs text-text-muted dark:text-dark-muted hidden sm:block truncate max-w-[180px]">
           {session?.user?.email}
         </span>
+
+        {/* Dark mode toggle */}
+        <button
+          onClick={toggle}
+          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          className="w-8 h-8 flex items-center justify-center rounded-md
+                     text-text-muted dark:text-dark-muted
+                     hover:text-text dark:hover:text-dark-text
+                     hover:bg-surface-offset dark:hover:bg-dark-offset2
+                     transition-colors"
+        >
+          {theme === 'dark' ? (
+            /* Sun icon */
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="5"/>
+              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+            </svg>
+          ) : (
+            /* Moon icon */
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+          )}
+        </button>
+
         <button
           onClick={() => supabase.auth.signOut()}
-          className="text-xs text-text-muted hover:text-text transition-colors px-2 py-1 rounded-md hover:bg-surface-offset"
+          className="text-xs text-text-muted dark:text-dark-muted
+                     hover:text-text dark:hover:text-dark-text
+                     transition-colors px-2 py-1 rounded-md
+                     hover:bg-surface-offset dark:hover:bg-dark-offset2"
         >
           Sign out
         </button>
@@ -41,8 +76,8 @@ function NavLink({ to, label, active }) {
       className={`
         px-3 py-1 rounded-md text-sm transition-colors no-underline
         ${active
-          ? 'bg-primary/10 text-primary font-medium'
-          : 'text-text-muted hover:text-text hover:bg-surface-offset'}
+          ? 'bg-primary/10 dark:bg-dark-primary/15 text-primary dark:text-dark-primary font-medium'
+          : 'text-text-muted dark:text-dark-muted hover:text-text dark:hover:text-dark-text hover:bg-surface-offset dark:hover:bg-dark-offset2'}
       `}
     >
       {label}
@@ -53,11 +88,11 @@ function NavLink({ to, label, active }) {
 function PintripLogoSmall() {
   return (
     <svg width="24" height="24" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-      <circle cx="24" cy="20" r="13" fill="#01696f"/>
-      <circle cx="24" cy="20" r="7"  fill="#fff"/>
-      <circle cx="24" cy="20" r="3"  fill="#01696f"/>
-      <path d="M24 33 L24 46" stroke="#01696f" strokeWidth="3" strokeLinecap="round"/>
-      <ellipse cx="24" cy="46" rx="6" ry="2" fill="#cedcd8"/>
+      <circle cx="24" cy="20" r="13" fill="currentColor" className="text-primary dark:text-dark-primary"/>
+      <circle cx="24" cy="20" r="7"  fill="white"/>
+      <circle cx="24" cy="20" r="3"  fill="currentColor" className="text-primary dark:text-dark-primary"/>
+      <path d="M24 33 L24 46" stroke="currentColor" className="text-primary dark:text-dark-primary" strokeWidth="3" strokeLinecap="round"/>
+      <ellipse cx="24" cy="46" rx="6" ry="2" fill="currentColor" className="text-primary-light dark:text-dark-primary/40"/>
     </svg>
   )
 }
