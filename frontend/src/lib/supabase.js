@@ -1,0 +1,16 @@
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL  || 'https://your-project.supabase.co'
+const supabaseKey  = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key'
+
+export const supabase = createClient(supabaseUrl, supabaseKey)
+
+/**
+ * Get the JWT access token for the current session.
+ * Pass this as `Authorization: Bearer <token>` to the FastAPI backend.
+ */
+export async function getAuthHeader() {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return {}
+  return { Authorization: `Bearer ${session.access_token}` }
+}

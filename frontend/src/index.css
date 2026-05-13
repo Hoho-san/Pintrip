@@ -1,0 +1,134 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design tokens ──────────────────────────────────────────── */
+:root {
+  --font-display: 'Instrument Serif', Georgia, serif;
+  --font-body:    'Inter', system-ui, sans-serif;
+
+  --text-xs:   clamp(0.75rem,  0.7rem  + 0.25vw, 0.875rem);
+  --text-sm:   clamp(0.875rem, 0.8rem  + 0.35vw, 1rem);
+  --text-base: clamp(1rem,     0.95rem + 0.25vw, 1.125rem);
+  --text-lg:   clamp(1.125rem, 1rem    + 0.75vw, 1.5rem);
+  --text-xl:   clamp(1.5rem,   1.2rem  + 1.25vw, 2.25rem);
+
+  --space-1:  0.25rem;
+  --space-2:  0.5rem;
+  --space-3:  0.75rem;
+  --space-4:  1rem;
+  --space-6:  1.5rem;
+  --space-8:  2rem;
+  --space-12: 3rem;
+
+  --radius-sm:   0.375rem;
+  --radius-md:   0.5rem;
+  --radius-lg:   0.75rem;
+  --radius-xl:   1rem;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 1px 2px oklch(0.2 0.01 80 / 0.06);
+  --shadow-md: 0 4px 12px oklch(0.2 0.01 80 / 0.08);
+  --shadow-lg: 0 12px 32px oklch(0.2 0.01 80 / 0.12);
+
+  --transition: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Base reset ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100dvh;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: #28251d;
+  background-color: #f7f6f2;
+  line-height: 1.6;
+}
+
+:focus-visible {
+  outline: 2px solid #01696f;
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Leaflet polaroid pin ───────────────────────────────────── */
+.polaroid-pin {
+  background: #fff;
+  padding: 4px 4px 14px;
+  box-shadow: var(--shadow-md);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition);
+  width: 52px;
+}
+.polaroid-pin:hover {
+  transform: scale(1.08) rotate(-1deg);
+  box-shadow: var(--shadow-lg);
+}
+.polaroid-pin img {
+  width: 44px;
+  height: 36px;
+  object-fit: cover;
+  display: block;
+  border-radius: 1px;
+}
+.polaroid-pin .pin-label {
+  font-size: 8px;
+  text-align: center;
+  color: #7a7974;
+  margin-top: 3px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--font-body);
+}
+.polaroid-pin-empty {
+  background: #fff;
+  padding: 4px 4px 14px;
+  box-shadow: var(--shadow-md);
+  border-radius: 2px;
+  cursor: pointer;
+  width: 52px;
+  transition: transform var(--transition);
+}
+.polaroid-pin-empty:hover { transform: scale(1.08); }
+.polaroid-pin-empty .pin-dot {
+  width: 44px;
+  height: 36px;
+  background: #cedcd8;
+  border-radius: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d4d1ca; border-radius: var(--radius-full); }
+
+/* ── Animations ─────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fadein { animation: fadeIn 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #f3f0ec 25%, #e6e4df 50%, #f3f0ec 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
