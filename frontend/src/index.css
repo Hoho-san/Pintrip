@@ -34,30 +34,30 @@
   --transition: 180ms cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Semantic color tokens — light mode */
-  --color-bg:           #f7f6f2;
-  --color-surface:      #f9f8f5;
-  --color-surface-2:    #fbfbf9;
-  --color-offset:       #f3f0ec;
-  --color-border:       #d4d1ca;
-  --color-text:         #28251d;
-  --color-text-muted:   #7a7974;
-  --color-primary:      #01696f;
-  --color-primary-hover:#0c4e54;
-  --color-primary-light:#cedcd8;
+  --color-bg:            #f7f6f2;
+  --color-surface:       #f9f8f5;
+  --color-surface-2:     #fbfbf9;
+  --color-offset:        #f3f0ec;
+  --color-border:        #d4d1ca;
+  --color-text:          #28251d;
+  --color-text-muted:    #7a7974;
+  --color-primary:       #01696f;
+  --color-primary-hover: #0c4e54;
+  --color-primary-light: #cedcd8;
 }
 
 /* ── Dark mode token overrides ──────────────────────────────── */
 .dark {
-  --color-bg:           #171614;
-  --color-surface:      #1c1b19;
-  --color-surface-2:    #201f1d;
-  --color-offset:       #22211f;
-  --color-border:       #393836;
-  --color-text:         #cdccca;
-  --color-text-muted:   #797876;
-  --color-primary:      #4f98a3;
-  --color-primary-hover:#227f8b;
-  --color-primary-light:#313b3b;
+  --color-bg:            #171614;
+  --color-surface:       #1c1b19;
+  --color-surface-2:     #201f1d;
+  --color-offset:        #22211f;
+  --color-border:        #393836;
+  --color-text:          #cdccca;
+  --color-text-muted:    #797876;
+  --color-primary:       #4f98a3;
+  --color-primary-hover: #227f8b;
+  --color-primary-light: #313b3b;
 
   --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.25);
   --shadow-md: 0 4px 12px oklch(0 0 0 / 0.35);
@@ -104,22 +104,31 @@ body {
   box-sizing: border-box;
   flex-shrink: 0;
 }
+
 .dark .polaroid-pin {
   background: #2d2c2a;
 }
+
 .polaroid-pin:hover {
   transform: scale(1.08) rotate(-1deg);
   box-shadow: var(--shadow-lg);
 }
+
 .polaroid-pin img {
-  width: 44px;
+  inline-size: 44px !important;
+  block-size: 36px !important;
+  min-width: 44px;
   max-width: 44px;
-  height: 36px;
+  min-height: 36px;
+  max-height: 36px;
+  width: 44px !important;
+  height: 36px !important;
   object-fit: cover;
   display: block;
   border-radius: 1px;
   flex-shrink: 0;
 }
+
 .polaroid-pin .pin-label {
   width: 44px;
   max-width: 44px;
@@ -147,14 +156,21 @@ body {
   box-sizing: border-box;
   transition: transform var(--transition);
 }
+
 .dark .polaroid-pin-empty {
   background: #2d2c2a;
 }
-.polaroid-pin-empty:hover { transform: scale(1.08); }
+
+.polaroid-pin-empty:hover {
+  transform: scale(1.08);
+}
+
 .polaroid-pin-empty .pin-dot {
   width: 44px;
   max-width: 44px;
   height: 36px;
+  min-width: 44px;
+  min-height: 36px;
   background: var(--color-primary-light);
   border-radius: 1px;
   display: flex;
@@ -171,13 +187,16 @@ body {
   transition: transform var(--transition), filter var(--transition);
   cursor: pointer;
 }
+
 .icon-pin.selected {
   transform: scale(1.12);
   filter: drop-shadow(0 3px 7px rgba(0, 0, 0, 0.35));
 }
+
 .icon-pin svg {
   display: block;
 }
+
 .icon-pin .pin-label {
   margin-top: 2px;
   font-size: 10px;
@@ -194,6 +213,7 @@ body {
   text-overflow: ellipsis;
   display: block;
 }
+
 .dark .icon-pin .pin-label {
   color: var(--color-text);
   background: rgba(28, 27, 25, 0.92);
@@ -213,12 +233,16 @@ body {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.animate-fadein { animation: fadeIn 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+.animate-fadein {
+  animation: fadeIn 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
 
 @keyframes shimmer {
   0%   { background-position: -200% 0; }
   100% { background-position:  200% 0; }
 }
+
 .skeleton {
   background: linear-gradient(
     90deg,
@@ -230,6 +254,7 @@ body {
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: var(--radius-sm);
 }
+
 .dark .skeleton {
   background: linear-gradient(90deg, #22211f 25%, #2d2c2a 50%, #22211f 75%);
   background-size: 200% 100%;
@@ -239,6 +264,7 @@ body {
 .dark .leaflet-tile {
   filter: brightness(0.65) invert(1) contrast(1.2) hue-rotate(200deg) saturate(0.4) brightness(0.75);
 }
+
 .dark .leaflet-container {
   background: #171614;
 }

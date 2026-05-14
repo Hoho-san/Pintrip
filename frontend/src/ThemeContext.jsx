@@ -7,7 +7,7 @@ export function AppProvider({ children }) {
     window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   )
 
-  const [markerStyle, setMarkerStyle] = useState('photo') // 'photo' | 'pin' | 'flag'
+  const [markerStyle, setMarkerStyle] = useState('flag') // change this
 
   useEffect(() => {
     const root = document.documentElement
