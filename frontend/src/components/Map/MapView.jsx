@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
 import PhotoPin from './PhotoPin'
+import { useAppContext } from '../../ThemeContext'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 
@@ -28,25 +29,17 @@ function AutoFocusCountry({ places = [] }) {
   useEffect(() => {
     if (!places.length) return
 
-    // Group places by country and sum photo counts
     const grouped = places.reduce((acc, place) => {
       const country = place.country || 'Unknown'
-      if (!acc[country]) {
-        acc[country] = {
-          photoCount: 0,
-          coords: [],
-        }
-      }
+      if (!acc[country]) acc[country] = { photoCount: 0, coords: [] }
       acc[country].photoCount += place.photo_count || 0
       acc[country].coords.push([place.lat, place.lng])
       return acc
     }, {})
 
-    // Find country with most photos
     const topCountry = Object.values(grouped).sort((a, b) => b.photoCount - a.photoCount)[0]
-    if (!topCountry || !topCountry.coords.length) return
+    if (!topCountry?.coords.length) return
 
-    // If all countries have 0 photos, fall back to all markers
     const coordsToUse =
       topCountry.photoCount > 0
         ? topCountry.coords
@@ -57,17 +50,15 @@ function AutoFocusCountry({ places = [] }) {
       return
     }
 
-    const bounds = L.latLngBounds(coordsToUse)
-    map.fitBounds(bounds, {
-      padding: [48, 48],
-      maxZoom: 6,
-    })
+    map.fitBounds(L.latLngBounds(coordsToUse), { padding: [48, 48], maxZoom: 6 })
   }, [places, map])
 
   return null
 }
 
 export default function MapView({ places = [], onMapClick, onPinClick, selectedId }) {
+  const { markerStyle } = useAppContext()
+
   return (
     <MapContainer
       center={[20, 0]}
@@ -92,6 +83,7 @@ export default function MapView({ places = [], onMapClick, onPinClick, selectedI
           place={place}
           isSelected={place.id === selectedId}
           onClick={() => onPinClick(place)}
+          markerStyle={markerStyle}
         />
       ))}
     </MapContainer>

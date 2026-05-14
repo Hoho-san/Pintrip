@@ -46,7 +46,7 @@
   --color-primary-light:#cedcd8;
 }
 
-/* Dark mode token overrides */
+/* ── Dark mode token overrides ──────────────────────────────── */
 .dark {
   --color-bg:           #171614;
   --color-surface:      #1c1b19;
@@ -99,6 +99,10 @@ body {
   cursor: pointer;
   transition: transform var(--transition), box-shadow var(--transition);
   width: 52px;
+  max-width: 52px;
+  overflow: hidden;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 .dark .polaroid-pin {
   background: #2d2c2a;
@@ -109,12 +113,16 @@ body {
 }
 .polaroid-pin img {
   width: 44px;
+  max-width: 44px;
   height: 36px;
   object-fit: cover;
   display: block;
   border-radius: 1px;
+  flex-shrink: 0;
 }
 .polaroid-pin .pin-label {
+  width: 44px;
+  max-width: 44px;
   font-size: 8px;
   text-align: center;
   color: var(--color-text-muted);
@@ -123,7 +131,10 @@ body {
   white-space: nowrap;
   text-overflow: ellipsis;
   font-family: var(--font-body);
+  display: block;
 }
+
+/* ── Leaflet polaroid pin — empty state ─────────────────────── */
 .polaroid-pin-empty {
   background: #fff;
   padding: 4px 4px 14px;
@@ -131,6 +142,9 @@ body {
   border-radius: 2px;
   cursor: pointer;
   width: 52px;
+  max-width: 52px;
+  overflow: hidden;
+  box-sizing: border-box;
   transition: transform var(--transition);
 }
 .dark .polaroid-pin-empty {
@@ -139,6 +153,7 @@ body {
 .polaroid-pin-empty:hover { transform: scale(1.08); }
 .polaroid-pin-empty .pin-dot {
   width: 44px;
+  max-width: 44px;
   height: 36px;
   background: var(--color-primary-light);
   border-radius: 1px;
@@ -147,10 +162,51 @@ body {
   justify-content: center;
 }
 
+/* ── Icon Pin (pin drop + flag) ─────────────────────────────── */
+.icon-pin {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+  transition: transform var(--transition), filter var(--transition);
+  cursor: pointer;
+}
+.icon-pin.selected {
+  transform: scale(1.12);
+  filter: drop-shadow(0 3px 7px rgba(0, 0, 0, 0.35));
+}
+.icon-pin svg {
+  display: block;
+}
+.icon-pin .pin-label {
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+  padding: 1px 4px;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  max-width: 84px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+.dark .icon-pin .pin-label {
+  color: var(--color-text);
+  background: rgba(28, 27, 25, 0.92);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
 /* ── Scrollbar ──────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+}
 
 /* ── Animations ─────────────────────────────────────────────── */
 @keyframes fadeIn {
@@ -164,7 +220,12 @@ body {
   100% { background-position:  200% 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, var(--color-offset) 25%, #d4d1ca 50%, var(--color-offset) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--color-offset) 25%,
+    #d4d1ca 50%,
+    var(--color-offset) 75%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: var(--radius-sm);
@@ -174,7 +235,7 @@ body {
   background-size: 200% 100%;
 }
 
-/* ── Leaflet map dark tiles ─────────────────────────────────── */
+/* ── Leaflet dark mode tiles ────────────────────────────────── */
 .dark .leaflet-tile {
   filter: brightness(0.65) invert(1) contrast(1.2) hue-rotate(200deg) saturate(0.4) brightness(0.75);
 }
@@ -182,6 +243,7 @@ body {
   background: #171614;
 }
 
+/* ── Reduced motion ─────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

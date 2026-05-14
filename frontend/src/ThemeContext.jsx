@@ -1,11 +1,13 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 
-const ThemeContext = createContext()
+const AppContext = createContext()
 
-export function ThemeProvider({ children }) {
+export function AppProvider({ children }) {
   const [theme, setTheme] = useState(() =>
     window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   )
+
+  const [markerStyle, setMarkerStyle] = useState('photo') // 'photo' | 'pin' | 'flag'
 
   useEffect(() => {
     const root = document.documentElement
@@ -19,10 +21,11 @@ export function ThemeProvider({ children }) {
   const toggle = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
 
   return (
-    <ThemeContext.Provider value={{ theme, toggle }}>
+    <AppContext.Provider value={{ theme, toggle, markerStyle, setMarkerStyle }}>
       {children}
-    </ThemeContext.Provider>
+    </AppContext.Provider>
   )
 }
 
-export const useTheme = () => useContext(ThemeContext)
+export const useTheme = () => useContext(AppContext)
+export const useAppContext = () => useContext(AppContext)

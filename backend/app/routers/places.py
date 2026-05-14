@@ -25,12 +25,14 @@ class PlaceCreate(BaseModel):
     notes: Optional[str] = None
     tags: Optional[list[str]] = None
     cover_photo: Optional[str] = None   # store storage_path, not public URL
+    marker_style: Optional[str] = "photo"  # photo | pin | flag
 
 
 class PlaceUpdate(PlaceCreate):
     name: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
+    marker_style: Optional[str] = None
 
 
 # Keep a thin shim so routers/photos.py and routers/ai.py can keep their
@@ -84,6 +86,7 @@ async def create_place(body: PlaceCreate, authorization: Optional[str] = Header(
 
     row = body.model_dump()
     row["tags"] = row.get("tags") or []
+    row["marker_style"] = row.get("marker_style") or "photo"
     row["user_id"] = user_id
 
     res = sb.table("places").insert(row).execute()
