@@ -6,8 +6,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
+from starlette.requests import Request
 
 from app.auth import require_user
+from app.limiter import limiter
 from app.services.storage import get_supabase_client, create_signed_photo_url
 
 router = APIRouter()
@@ -60,7 +62,8 @@ async def _with_signed_cover_async(place: dict) -> dict:
 
 
 @router.get("/")
-async def list_places(authorization: Optional[str] = Header(None)):
+@limiter.limit("10/minute")
+async def list_places(request: Request, authorization: Optional[str] = Header(None)):
     user_id = _require_user(authorization)
     sb = get_supabase_client()
 
@@ -80,7 +83,8 @@ async def list_places(authorization: Optional[str] = Header(None)):
 
 
 @router.post("/", status_code=201)
-async def create_place(body: PlaceCreate, authorization: Optional[str] = Header(None)):
+@limiter.limit("10/minute")
+async def create_place(request: Request, body: PlaceCreate, authorization: Optional[str] = Header(None)):
     user_id = _require_user(authorization)
     sb = get_supabase_client()
 
@@ -94,7 +98,8 @@ async def create_place(body: PlaceCreate, authorization: Optional[str] = Header(
 
 
 @router.get("/{place_id}")
-async def get_place(place_id: UUID, authorization: Optional[str] = Header(None)):
+@limiter.limit("10/minute")
+async def get_place(request: Request, place_id: UUID, authorization: Optional[str] = Header(None)):
     user_id = _require_user(authorization)
     sb = get_supabase_client()
 
@@ -114,7 +119,9 @@ async def get_place(place_id: UUID, authorization: Optional[str] = Header(None))
 
 
 @router.put("/{place_id}")
+@limiter.limit("10/minute")
 async def update_place(
+    request: Request,
     place_id: UUID,
     body: PlaceUpdate,
     authorization: Optional[str] = Header(None),
@@ -139,7 +146,8 @@ async def update_place(
 
 
 @router.delete("/{place_id}", status_code=204)
-async def delete_place(place_id: UUID, authorization: Optional[str] = Header(None)):
+@limiter.limit("10/minute")
+async def delete_place(request: Request, place_id: UUID, authorization: Optional[str] = Header(None)):
     user_id = _require_user(authorization)
     sb = get_supabase_client()
 

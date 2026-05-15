@@ -1,15 +1,26 @@
 """
-auth.py — JWT verification using PyJWT + Supabase JWT secret.
+auth.py — JWT verification using PyJWT + Supabase JWT secret / JWKS.
 """
 from typing import Optional
 
 import jwt
+from jwt import PyJWKClient
 from fastapi import HTTPException
 
 from app.config import settings
 
-_ALGORITHMS = ["HS256", "ES256", "RS256"]
-_AUDIENCE   = "authenticated"
+_AUDIENCE = "authenticated"
+
+# Lazy-initialized JWKS client; caches keys fetched from Supabase
+_jwks_client: PyJWKClient | None = None
+
+
+def _get_jwks_client() -> PyJWKClient:
+    global _jwks_client
+    if _jwks_client is None:
+        jwks_url = f"{settings.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+        _jwks_client = PyJWKClient(jwks_url, cache_keys=True)
+    return _jwks_client
 
 
 def require_user(authorization: Optional[str]) -> str:
@@ -21,7 +32,6 @@ def require_user(authorization: Optional[str]) -> str:
 
     token = authorization.split(" ", 1)[1]
 
-    # Peek at the token header to find the actual algorithm used
     try:
         unverified_header = jwt.get_unverified_header(token)
     except jwt.DecodeError:
@@ -31,7 +41,6 @@ def require_user(authorization: Optional[str]) -> str:
 
     try:
         if alg == "HS256":
-            # Legacy shared secret verification
             payload = jwt.decode(
                 token,
                 settings.supabase_jwt_secret,
@@ -39,11 +48,11 @@ def require_user(authorization: Optional[str]) -> str:
                 audience=_AUDIENCE,
             )
         else:
-            # ES256 / RS256 — verify without signature (Supabase RLS still enforces data access)
+            signing_key = _get_jwks_client().get_signing_key_from_jwt(token)
             payload = jwt.decode(
                 token,
-                options={"verify_signature": False},
-                algorithms=_ALGORITHMS,
+                signing_key,
+                algorithms=["ES256", "RS256"],
                 audience=_AUDIENCE,
             )
     except jwt.ExpiredSignatureError:

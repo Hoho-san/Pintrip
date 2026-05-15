@@ -3,7 +3,9 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, File, Form, Header, UploadFile
+from starlette.requests import Request
 
+from app.limiter import limiter
 from app.services.exif import extract_gps
 from app.services.storage import upload_photo, get_supabase_client, create_signed_photo_url
 from app.routers.places import _require_user
@@ -21,7 +23,9 @@ def _with_signed_url(row: dict) -> dict:
 
 
 @router.post("/upload", status_code=201)
+@limiter.limit("10/minute")
 async def upload_photo_endpoint(
+    request: Request,
     file: UploadFile = File(...),
     place_id: str = Form(...),
     authorization: Optional[str] = Header(None),
@@ -53,7 +57,8 @@ async def upload_photo_endpoint(
 
 
 @router.get("/{place_id}")
-def list_photos(place_id: UUID, authorization: Optional[str] = Header(None)):
+@limiter.limit("10/minute")
+def list_photos(request: Request, place_id: UUID, authorization: Optional[str] = Header(None)):
     user_id = _require_user(authorization)
     sb = get_supabase_client()
     res = (
@@ -68,7 +73,8 @@ def list_photos(place_id: UUID, authorization: Optional[str] = Header(None)):
 
 
 @router.delete("/{photo_id}", status_code=204)
-def delete_photo(photo_id: UUID, authorization: Optional[str] = Header(None)):
+@limiter.limit("10/minute")
+def delete_photo(request: Request, photo_id: UUID, authorization: Optional[str] = Header(None)):
     user_id = _require_user(authorization)
     sb = get_supabase_client()
     res = (

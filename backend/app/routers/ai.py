@@ -2,7 +2,9 @@ from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
+from starlette.requests import Request
 
+from app.limiter import limiter
 from app.services.gemini import generate_caption, generate_story
 from app.services.storage import get_supabase_client
 from app.routers.places import _require_user
@@ -20,7 +22,8 @@ class StoryRequest(BaseModel):
 
 
 @router.post("/caption")
-async def caption_endpoint(body: CaptionRequest, authorization: Optional[str] = Header(None)):
+@limiter.limit("10/minute")
+async def caption_endpoint(request: Request, body: CaptionRequest, authorization: Optional[str] = Header(None)):
     _require_user(authorization)
     try:
         result = await generate_caption(body.image_url)
@@ -38,7 +41,8 @@ async def caption_endpoint(body: CaptionRequest, authorization: Optional[str] = 
 
 
 @router.post("/story")
-async def story_endpoint(body: StoryRequest, authorization: Optional[str] = Header(None)):
+@limiter.limit("10/minute")
+async def story_endpoint(request: Request, body: StoryRequest, authorization: Optional[str] = Header(None)):
     user_id = _require_user(authorization)
     sb = get_supabase_client()
 
