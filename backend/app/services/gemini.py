@@ -7,6 +7,7 @@ import io
 import json
 import mimetypes
 import re
+from urllib import response
 from urllib.parse import urlparse
 
 import httpx
@@ -120,7 +121,7 @@ async def generate_caption(image_url: str) -> dict:
         response_format={"type": "json_object"},
     )
 
-    msg = response.choices.message
+    msg = response.choices[0].message
     content = msg.content
 
     if isinstance(content, str):
@@ -166,7 +167,7 @@ async def generate_story(place_id: str, captions: list[str]) -> str:
         temperature=0.9,
     )
 
-    msg = response.choices.message
+    msg = response.choices[0].message
     content = msg.content
 
     if isinstance(content, str):
