@@ -6,6 +6,7 @@ import MapPage from './pages/MapPage'
 import GalleryPage from './pages/GalleryPage'
 import AuthPage from './pages/AuthPage'
 import NavBar from './components/UI/NavBar'
+import AiChatBot from './components/AI/AiChatBot'  // ← ADD THIS
 
 export default function App() {
   const [session, setSession] = useState(undefined)
@@ -161,6 +162,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+      {session && <AiChatBot />}  {/* ← ADD THIS */}
     </>
   )
 }

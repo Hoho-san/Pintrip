@@ -1,6 +1,7 @@
 """
-gemini.py — Groq Llama 4 Scout Vision for captions, Llama 3.3 for stories.
+gemini.py — Groq Llama 4 Scout Vision for captions, Llama 3.3 for stories, chat.
 """
+import asyncio
 import base64
 import io
 import json
@@ -20,8 +21,8 @@ client = Groq(api_key=settings.groq_api_key)
 VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 TEXT_MODEL   = "llama-3.3-70b-versatile"
 
-MAX_B64_BYTES = 3 * 1024 * 1024   # 3MB safety margin (Groq hard limit is 4MB)
-MAX_DIMENSION = 1280               # resize long edge to this before encoding
+MAX_B64_BYTES = 3 * 1024 * 1024
+MAX_DIMENSION = 1280
 
 
 def _storage_path_from_url(file_url: str) -> str:
@@ -53,16 +54,13 @@ async def _fetch_image_bytes(file_url: str) -> tuple[bytes, str]:
 
 
 def _compress_image(image_bytes: bytes) -> tuple[bytes, str]:
-    """Resize and compress image to stay under Groq's 4MB base64 limit."""
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
-    # Resize if too large
     w, h = img.size
     if max(w, h) > MAX_DIMENSION:
         scale = MAX_DIMENSION / max(w, h)
         img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
 
-    # Compress to JPEG, reduce quality until under limit
     quality = 85
     while quality >= 40:
         buf = io.BytesIO()
@@ -122,7 +120,7 @@ async def generate_caption(image_url: str) -> dict:
         response_format={"type": "json_object"},
     )
 
-    msg = response.choices[0].message
+    msg = response.choices.message
     content = msg.content
 
     if isinstance(content, str):
@@ -168,7 +166,7 @@ async def generate_story(place_id: str, captions: list[str]) -> str:
         temperature=0.9,
     )
 
-    msg = response.choices[0].message
+    msg = response.choices.message
     content = msg.content
 
     if isinstance(content, str):
@@ -189,3 +187,38 @@ async def generate_story(place_id: str, captions: list[str]) -> str:
         raise ValueError(f"Groq returned empty story response: {response}")
 
     return text
+
+
+# ── AI Chat ───────────────────────────────────────────────────────────────────
+
+async def generate_chat_reply(messages: list) -> str:
+    """Multi-turn travel assistant chat using Groq."""
+    if not settings.groq_api_key:
+        raise ValueError("GROQ_API_KEY is not configured.")
+
+    groq_messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are a friendly travel assistant for Pintrip, a travel photo map app. "
+                "Help users plan trips, discover destinations, write travel captions, "
+                "and get the most out of their travel memories. Keep replies concise and helpful."
+            ),
+        }
+    ]
+
+    for msg in messages:
+        role = msg.role if hasattr(msg, "role") else msg["role"]
+        content = msg.content if hasattr(msg, "content") else msg["content"]
+        # Groq uses "assistant" not "model"
+        groq_messages.append({"role": role, "content": content})
+
+    response = await asyncio.to_thread(
+        client.chat.completions.create,
+        model=TEXT_MODEL,
+        messages=groq_messages,
+        max_completion_tokens=400,
+        temperature=0.7,
+    )
+
+    return response.choices[0].message.content.strip()          

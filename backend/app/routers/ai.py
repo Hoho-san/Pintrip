@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from starlette.requests import Request
 
 from app.limiter import limiter
-from app.services.gemini import generate_caption, generate_story
+from app.services.gemini import generate_caption, generate_story, generate_chat_reply
 from app.services.storage import get_supabase_client
 from app.routers.places import _require_user
 
@@ -19,6 +19,15 @@ class CaptionRequest(BaseModel):
 
 class StoryRequest(BaseModel):
     place_id: str
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage]
 
 
 @router.post("/caption")
@@ -64,3 +73,16 @@ async def story_endpoint(request: Request, body: StoryRequest, authorization: Op
         return {"story": story}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Story generation failed: {str(e)}")
+
+
+@router.post("/chat")
+@limiter.limit("20/minute")
+async def chat_endpoint(request: Request, body: ChatRequest, authorization: Optional[str] = Header(None)):
+    _require_user(authorization)
+    try:
+        reply = await generate_chat_reply(body.messages)
+        return {"reply": reply}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()   # ← ADD THIS LINE
+        raise HTTPException(status_code=500, detail=str(e))  # ← change to str(e)
