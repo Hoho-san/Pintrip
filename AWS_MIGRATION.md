@@ -1,37 +1,33 @@
 # Pintrip — AWS Migration Plan
 
 ## Current Stack
-| Layer | Current | Target |
-|---|---|---|
-| Frontend | Vercel | **Keep Vercel** (free forever, no change) |
-| Backend | Fly.io (FastAPI, Docker) | EC2 t2.micro (`api.hohosan.site`) |
-| Database | Supabase PostgreSQL | RDS PostgreSQL (free tier) |
-| Auth | Supabase Auth | AWS Cognito (free forever up to 50K MAU) |
-| File Storage | Supabase Storage | S3 (free tier) |
-| AI | Groq API | Keep (no change) |
-| Domain | — | `hohosan.site` via Namecheap DNS |
-
-> **Strategy**: Full migration off Supabase onto AWS. Do phases in order — EC2 first, then RDS, then S3, then Cognito last (auth affects user IDs everywhere).
+| Layer | Before | After | Status |
+|---|---|---|---|
+| Frontend | Vercel | Vercel (keep) | ✅ no change |
+| Backend | Fly.io (FastAPI, Docker) | EC2 t2.micro (`api.hohosan.site`) | ⏳ next |
+| Database | Supabase PostgreSQL | RDS PostgreSQL (`pintrip-db`) | ✅ done |
+| Auth | Supabase Auth | FastAPI + bcrypt + JWT | ✅ done |
+| File Storage | Supabase Storage | S3 | ⏳ pending |
+| AI | Groq API | Keep (no change) | ✅ no change |
+| Domain | — | `hohosan.site` via Namecheap DNS | ⏳ pending |
 
 ## Migration Order
-| # | Phase | Depends on |
+| # | Phase | Status |
 |---|---|---|
-| 0 | AWS account + billing alert | — ✅ done |
-| 1 | EC2 backend (still pointing to Supabase temporarily) | — |
-| 2 | RDS PostgreSQL + migrate schema/data | EC2 |
-| 3 | S3 photo storage + migrate files | EC2 |
-| 4 | Cognito auth + update frontend | RDS + S3 |
-| 5 | Domain (`api.hohosan.site`) | EC2 |
-| 6 | Decommission Supabase | All above |
+| 0 | AWS account + billing alert | ✅ done |
+| 1 | RDS PostgreSQL + FastAPI auth | ✅ done |
+| 2 | EC2 backend deployment | ⏳ next |
+| 3 | S3 photo storage | ⏳ pending |
+| 4 | Domain (`api.hohosan.site`) | ⏳ pending |
+| 5 | Decommission Supabase | ⏳ pending |
 
 ---
 
-## Phase 0 — AWS Account Setup
+## Phase 0 — AWS Account Setup ✅
 
-1. Create an AWS account at https://aws.amazon.com (requires a credit card, but free tier applies)
-2. Enable MFA on the root account immediately
-3. Create an IAM user with `AdministratorAccess` for day-to-day use — never use root
-4. Set your default region to `ap-southeast-1` (Singapore) to match Fly.io's current `sin` region
+1. ✅ Created AWS account
+2. ✅ Enabled MFA on root account
+3. ✅ Region set to `ap-southeast-1` (Singapore)
 
 ---
 
@@ -39,37 +35,30 @@
 
 > **Goal**: Get notified by email when spend reaches $5 USD.
 
-### 1.1 — Enable billing alerts
-1. Go to **Billing and Cost Management** → **Billing preferences**
-2. Check **Receive Free Tier Usage Alerts** (email)
-3. Check **Receive Billing Alerts** and save
+✅ Billing alerts configured — email notification at $5 spend to `javierjojo.dev@gmail.com`.
 
-### 1.2 — Create a $5 Budget
-1. Go to **AWS Budgets** → **Create budget**
-2. Choose **Cost budget** → **Monthly**
-3. Set budgeted amount: `5.00 USD`
-4. Add alert: **80% of actual cost** → enter your email (`javierjojo.dev@gmail.com`)
-5. Add a second alert: **100% of actual cost** → same email
-6. Create budget
+---
 
-### 1.3 — CloudWatch billing alarm (backup)
-```bash
-# Run in AWS CLI after configuring credentials
-aws cloudwatch put-metric-alarm \
-  --alarm-name "billing-5usd" \
-  --alarm-description "Alert when AWS charges exceed $5" \
-  --metric-name EstimatedCharges \
-  --namespace AWS/Billing \
-  --statistic Maximum \
-  --period 86400 \
-  --threshold 5 \
-  --comparison-operator GreaterThanThreshold \
-  --dimensions Name=Currency,Value=USD \
-  --evaluation-periods 1 \
-  --alarm-actions <SNS_TOPIC_ARN> \
-  --region us-east-1
+## Phase 1 — RDS + FastAPI Auth ✅
+
+### What was done
+- ✅ RDS PostgreSQL `pintrip-db` created — `db.t4g.micro`, Singapore, free tier
+  - Endpoint: `pintrip-db.cteya688givr.ap-southeast-1.rds.amazonaws.com:5432`
+  - Database: `pintrip` / User: `pintrip_admin`
+- ✅ Tables auto-created on startup: `users`, `places`, `photos`
+- ✅ FastAPI auth built — `POST /auth/register`, `POST /auth/login`, `GET /auth/me`
+  - Password hashing: `bcrypt` (direct, not passlib — passlib incompatible with bcrypt 4+)
+  - JWT: HS256, 30-day expiry, stored in `localStorage` on frontend
+- ✅ All Supabase DB queries replaced with SQLAlchemy in `places.py`, `photos.py`, `ai.py`
+- ✅ Frontend auth replaced — `lib/supabase.js` → `lib/auth.js`, no more `@supabase/supabase-js` auth calls
+- ⚠️ Supabase Storage still used for photo upload/download — migrate to S3 in Phase 3
+
+### Key env vars added to `backend/.env`
+```env
+DATABASE_URL=postgresql://pintrip_admin:[password]@pintrip-db.cteya688givr.ap-southeast-1.rds.amazonaws.com:5432/pintrip
+JWT_SECRET=[32-byte hex secret]
+JWT_EXPIRE_DAYS=30
 ```
-> Note: EstimatedCharges metric is only available in `us-east-1`.
 
 ---
 

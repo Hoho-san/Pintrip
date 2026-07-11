@@ -9,9 +9,11 @@ class Settings(BaseSettings):
     jwt_secret: str
     jwt_expire_days: int = 30
 
-    # Supabase (still used for places/photos DB queries and storage until RDS+S3 migration)
-    supabase_url: str = ""
-    supabase_service_key: str = ""
+    # S3 photo storage
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_s3_bucket: str = "pintrip-photos-hohosan"
+    aws_region: str = "ap-southeast-1"
 
     # AI
     groq_api_key: str | None = None
