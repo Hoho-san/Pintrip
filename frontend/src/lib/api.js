@@ -2,7 +2,7 @@
  * api.js — Typed wrappers around the Pintrip FastAPI backend.
  * All requests attach the Supabase JWT so the backend can identify the user.
  */
-import { getAuthHeader } from './supabase'
+import { getAuthHeader } from './auth'
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 

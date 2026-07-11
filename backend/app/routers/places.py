@@ -1,20 +1,21 @@
 """CRUD router for travel places."""
 import asyncio
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
-from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 from starlette.requests import Request
 
 from app.auth import require_user
+from app.database import get_db
 from app.limiter import limiter
-from app.services.storage import get_supabase_client, create_signed_photo_url
+from app.models import Photo, Place
+from app.services.storage import create_signed_photo_url, delete_photos
 
 router = APIRouter()
-
-# Small thread pool for blocking signed URL generation calls
 _executor = ThreadPoolExecutor(max_workers=4)
 
 
@@ -26,8 +27,8 @@ class PlaceCreate(BaseModel):
     visited_at: Optional[str] = None
     notes: Optional[str] = None
     tags: Optional[list[str]] = None
-    cover_photo: Optional[str] = None   # store storage_path, not public URL
-    marker_style: Optional[str] = "photo"  # photo | pin | flag
+    cover_photo: Optional[str] = None
+    marker_style: Optional[str] = "photo"
 
 
 class PlaceUpdate(PlaceCreate):
@@ -37,135 +38,144 @@ class PlaceUpdate(PlaceCreate):
     marker_style: Optional[str] = None
 
 
-# Keep a thin shim so routers/photos.py and routers/ai.py can keep their
-# existing `from app.routers.places import _require_user` import unchanged.
 def _require_user(authorization: Optional[str]) -> str:
     return require_user(authorization)
 
 
-def _with_signed_cover(place: dict) -> dict:
-    place = dict(place)
-    cover_path = place.get("cover_photo")
+def _place_dict(place: Place) -> dict:
+    return {
+        "id": place.id,
+        "user_id": place.user_id,
+        "name": place.name,
+        "country": place.country,
+        "lat": place.lat,
+        "lng": place.lng,
+        "visited_at": place.visited_at,
+        "notes": place.notes,
+        "tags": place.tags or [],
+        "cover_photo": place.cover_photo,
+        "marker_style": place.marker_style,
+        "created_at": place.created_at.isoformat() if place.created_at else None,
+    }
+
+
+def _with_signed_cover(place: Place) -> dict:
+    d = _place_dict(place)
+    cover_path = place.cover_photo
     if cover_path and "/" in cover_path:
         try:
-            place["cover_signed_url"] = create_signed_photo_url(cover_path, expires_in=3600)
+            d["cover_signed_url"] = create_signed_photo_url(cover_path, expires_in=3600)
         except Exception:
-            place["cover_signed_url"] = None
+            d["cover_signed_url"] = None
     else:
-        place["cover_signed_url"] = None
-    return place
+        d["cover_signed_url"] = None
+    return d
 
 
-async def _with_signed_cover_async(place: dict) -> dict:
+async def _with_signed_cover_async(place: Place) -> dict:
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(_executor, _with_signed_cover, place)
 
 
 @router.get("/")
 @limiter.limit("10/minute")
-async def list_places(request: Request, authorization: Optional[str] = Header(None)):
+async def list_places(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
     user_id = _require_user(authorization)
-    sb = get_supabase_client()
-
-    res = (
-        sb.table("places")
-        .select("*")
-        .eq("user_id", user_id)
-        .order("created_at", desc=True)
-        .execute()
+    places = (
+        db.query(Place)
+        .filter(Place.user_id == user_id)
+        .order_by(Place.created_at.desc())
+        .all()
     )
-
-    rows = res.data or []
-    if not rows:
+    if not places:
         return []
-
-    return await asyncio.gather(*[_with_signed_cover_async(row) for row in rows])
+    return await asyncio.gather(*[_with_signed_cover_async(p) for p in places])
 
 
 @router.post("/", status_code=201)
 @limiter.limit("10/minute")
-async def create_place(request: Request, body: PlaceCreate, authorization: Optional[str] = Header(None)):
+async def create_place(
+    request: Request,
+    body: PlaceCreate,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
     user_id = _require_user(authorization)
-    sb = get_supabase_client()
-
-    row = body.model_dump()
-    row["tags"] = row.get("tags") or []
-    row["marker_style"] = row.get("marker_style") or "photo"
-    row["user_id"] = user_id
-
-    res = sb.table("places").insert(row).execute()
-    return await _with_signed_cover_async(res.data[0])
+    place = Place(
+        id=str(uuid.uuid4()),
+        user_id=user_id,
+        name=body.name,
+        country=body.country,
+        lat=body.lat,
+        lng=body.lng,
+        visited_at=body.visited_at,
+        notes=body.notes,
+        tags=body.tags or [],
+        cover_photo=body.cover_photo,
+        marker_style=body.marker_style or "photo",
+    )
+    db.add(place)
+    db.commit()
+    db.refresh(place)
+    return await _with_signed_cover_async(place)
 
 
 @router.get("/{place_id}")
 @limiter.limit("10/minute")
-async def get_place(request: Request, place_id: UUID, authorization: Optional[str] = Header(None)):
+async def get_place(
+    request: Request,
+    place_id: str,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
     user_id = _require_user(authorization)
-    sb = get_supabase_client()
-
-    res = (
-        sb.table("places")
-        .select("*")
-        .eq("id", str(place_id))
-        .eq("user_id", user_id)
-        .single()
-        .execute()
-    )
-
-    if not res.data:
+    place = db.query(Place).filter(Place.id == place_id, Place.user_id == user_id).first()
+    if not place:
         raise HTTPException(status_code=404, detail="Place not found")
-
-    return await _with_signed_cover_async(res.data)
+    return await _with_signed_cover_async(place)
 
 
 @router.put("/{place_id}")
 @limiter.limit("10/minute")
 async def update_place(
     request: Request,
-    place_id: UUID,
+    place_id: str,
     body: PlaceUpdate,
     authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
 ):
     user_id = _require_user(authorization)
-    sb = get_supabase_client()
-
-    updates = {k: v for k, v in body.model_dump().items() if v is not None}
-
-    res = (
-        sb.table("places")
-        .update(updates)
-        .eq("id", str(place_id))
-        .eq("user_id", user_id)
-        .execute()
-    )
-
-    if not res.data:
+    place = db.query(Place).filter(Place.id == place_id, Place.user_id == user_id).first()
+    if not place:
         raise HTTPException(status_code=404, detail="Place not found")
-
-    return await _with_signed_cover_async(res.data[0])
+    for field, value in body.model_dump(exclude_none=True).items():
+        setattr(place, field, value)
+    db.commit()
+    db.refresh(place)
+    return await _with_signed_cover_async(place)
 
 
 @router.delete("/{place_id}", status_code=204)
 @limiter.limit("10/minute")
-async def delete_place(request: Request, place_id: UUID, authorization: Optional[str] = Header(None)):
+def delete_place(
+    request: Request,
+    place_id: str,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
     user_id = _require_user(authorization)
-    sb = get_supabase_client()
-
-    photos_res = (
-        sb.table("photos")
-        .select("storage_path")
-        .eq("place_id", str(place_id))
-        .eq("user_id", user_id)
-        .execute()
+    photos = (
+        db.query(Photo)
+        .filter(Photo.place_id == place_id, Photo.user_id == user_id)
+        .all()
     )
-
-    storage_paths = [
-        row["storage_path"]
-        for row in (photos_res.data or [])
-        if row.get("storage_path")
-    ]
-
+    storage_paths = [p.storage_path for p in photos if p.storage_path]
     if storage_paths:
-        sb.storage.from_("pintrip-photos").remove(storage_paths)
-
-    sb.table("places").delete().eq("id", str(place_id)).eq("user_id", user_id).execute()
+        delete_photos(storage_paths)
+    db.query(Photo).filter(Photo.place_id == place_id, Photo.user_id == user_id).delete()
+    db.query(Place).filter(Place.id == place_id, Place.user_id == user_id).delete()
+    db.commit()

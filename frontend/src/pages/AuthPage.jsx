@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { authApi } from '../lib/auth'
 
-export default function AuthPage() {
+export default function AuthPage({ onSignIn }) {
   const [mode,     setMode]     = useState('signin')
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
@@ -14,12 +14,11 @@ export default function AuthPage() {
     setLoading(true); setError(null); setMessage(null)
     try {
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({ email, password })
-        if (error) throw error
-        setMessage('Check your email for a confirmation link.')
+        const session = await authApi.signUp({ email, password })
+        onSignIn(session)
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) throw error
+        const session = await authApi.signIn({ email, password })
+        onSignIn(session)
       }
     } catch (err) {
       setError(err.message)

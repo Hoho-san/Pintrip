@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { supabase } from './lib/supabase'
+import { authApi } from './lib/auth'
 import { placesApi, photosApi } from './lib/api'
 import MapPage from './pages/MapPage'
 import GalleryPage from './pages/GalleryPage'
@@ -21,11 +21,7 @@ export default function App() {
   const userId = session?.user?.id
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s)
-    })
-    return () => subscription.unsubscribe()
+    setSession(authApi.getSession())
   }, [])
 
   const loadAppData = useCallback(async () => {
@@ -128,11 +124,11 @@ export default function App() {
 
   return (
     <>
-      {session && <NavBar session={session} />}
+      {session && <NavBar session={session} onSignOut={() => { authApi.signOut(); setSession(null) }} />}
       <Routes>
         <Route
           path="/auth"
-          element={session ? <Navigate to="/" /> : <AuthPage />}
+          element={session ? <Navigate to="/" /> : <AuthPage onSignIn={setSession} />}
         />
 
         <Route

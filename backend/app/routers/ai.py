@@ -1,13 +1,15 @@
 from typing import Optional
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 from starlette.requests import Request
 
+from app.database import get_db
 from app.limiter import limiter
-from app.services.gemini import generate_caption, generate_story, generate_chat_reply
-from app.services.storage import get_supabase_client
+from app.models import Photo
 from app.routers.places import _require_user
+from app.services.gemini import generate_caption, generate_story, generate_chat_reply
 
 router = APIRouter()
 
@@ -32,18 +34,21 @@ class ChatRequest(BaseModel):
 
 @router.post("/caption")
 @limiter.limit("10/minute")
-async def caption_endpoint(request: Request, body: CaptionRequest, authorization: Optional[str] = Header(None)):
+async def caption_endpoint(
+    request: Request,
+    body: CaptionRequest,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
     _require_user(authorization)
     try:
         result = await generate_caption(body.image_url)
-
         if body.photo_id:
-            sb = get_supabase_client()
-            sb.table("photos").update({
-                "ai_caption": result["caption"],
-                "ai_tags": result["tags"],
-            }).eq("id", body.photo_id).execute()
-
+            photo = db.query(Photo).filter(Photo.id == body.photo_id).first()
+            if photo:
+                photo.ai_caption = result["caption"]
+                photo.ai_tags = result["tags"]
+                db.commit()
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Caption generation failed: {str(e)}")
@@ -51,23 +56,21 @@ async def caption_endpoint(request: Request, body: CaptionRequest, authorization
 
 @router.post("/story")
 @limiter.limit("10/minute")
-async def story_endpoint(request: Request, body: StoryRequest, authorization: Optional[str] = Header(None)):
+async def story_endpoint(
+    request: Request,
+    body: StoryRequest,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
     user_id = _require_user(authorization)
-    sb = get_supabase_client()
-
-    res = (
-        sb.table("photos")
-        .select("ai_caption, public_url")
-        .eq("place_id", body.place_id)
-        .eq("user_id", user_id)
-        .execute()
+    photos = (
+        db.query(Photo)
+        .filter(Photo.place_id == body.place_id, Photo.user_id == user_id)
+        .all()
     )
-    photos = res.data or []
     if not photos:
         raise HTTPException(status_code=404, detail="No photos found for this place")
-
-    captions = [p["ai_caption"] for p in photos if p.get("ai_caption")]
-
+    captions = [p.ai_caption for p in photos if p.ai_caption]
     try:
         story = await generate_story(place_id=body.place_id, captions=captions)
         return {"story": story}
@@ -77,12 +80,16 @@ async def story_endpoint(request: Request, body: StoryRequest, authorization: Op
 
 @router.post("/chat")
 @limiter.limit("20/minute")
-async def chat_endpoint(request: Request, body: ChatRequest, authorization: Optional[str] = Header(None)):
+async def chat_endpoint(
+    request: Request,
+    body: ChatRequest,
+    authorization: Optional[str] = Header(None),
+):
     _require_user(authorization)
     try:
         reply = await generate_chat_reply(body.messages)
         return {"reply": reply}
     except Exception as e:
         import traceback
-        traceback.print_exc()   # ← ADD THIS LINE
-        raise HTTPException(status_code=500, detail=str(e))  # ← change to str(e)
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))

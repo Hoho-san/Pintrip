@@ -5,7 +5,11 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.limiter import limiter
-from app.routers import places, photos, ai
+from app.routers import places, photos, ai, auth as auth_router
+from app.database import engine
+from app import models
+
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Pintrip API",
@@ -26,6 +30,7 @@ app.add_middleware(
 )
 
 # ── Routers ───────────────────────────────────────────────────
+app.include_router(auth_router.router, prefix="/auth", tags=["Auth"])
 app.include_router(places.router, prefix="/places", tags=["Places"])
 app.include_router(photos.router, prefix="/photos", tags=["Photos"])
 app.include_router(ai.router, prefix="/ai", tags=["AI"])

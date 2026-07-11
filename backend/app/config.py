@@ -2,13 +2,21 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    supabase_url: str
-    supabase_service_key: str
-    supabase_jwt_secret: str | None = None
-    gemini_api_key: str | None = None
+    # Database
+    database_url: str
+
+    # Auth
+    jwt_secret: str
+    jwt_expire_days: int = 30
+
+    # Supabase (still used for places/photos DB queries and storage until RDS+S3 migration)
+    supabase_url: str = ""
+    supabase_service_key: str = ""
+
+    # AI
     groq_api_key: str | None = None
-    hf_api_key: str | None = None
-    hf_caption_model: str = "Salesforce/blip-image-captioning-base"
+
+    # CORS
     allowed_origins: str = "http://localhost:5173"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

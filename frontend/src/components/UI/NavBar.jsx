@@ -1,5 +1,4 @@
 import { Link, useLocation } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { useAppContext } from '../../ThemeContext'
 
 const MARKER_OPTIONS = [
@@ -39,7 +38,7 @@ const MARKER_OPTIONS = [
   },
 ]
 
-export default function NavBar({ session }) {
+export default function NavBar({ session, onSignOut }) {
   const loc = useLocation()
   const { theme, toggle, markerStyle, setMarkerStyle } = useAppContext()
 
@@ -119,7 +118,7 @@ export default function NavBar({ session }) {
         </button>
 
         <button
-          onClick={() => supabase.auth.signOut()}
+          onClick={onSignOut}
           className="text-xs text-text-muted dark:text-dark-muted
                      hover:text-text dark:hover:text-dark-text
                      transition-colors px-2 py-1 rounded-md
