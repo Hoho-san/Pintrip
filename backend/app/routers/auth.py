@@ -2,9 +2,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 import uuid
 
+import bcrypt
 import jwt
 from fastapi import APIRouter, Depends, Header, HTTPException
-from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
@@ -14,7 +14,14 @@ from app.database import get_db
 from app.models import User
 
 router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def _hash(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+def _verify(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode(), hashed.encode())
 
 
 class AuthRequest(BaseModel):
@@ -49,7 +56,7 @@ def register(body: AuthRequest, db: Session = Depends(get_db)):
     user = User(
         id=str(uuid.uuid4()),
         email=body.email,
-        hashed_password=pwd_context.hash(body.password),
+        hashed_password=_hash(body.password),
     )
     db.add(user)
     db.commit()
@@ -60,7 +67,7 @@ def register(body: AuthRequest, db: Session = Depends(get_db)):
 @router.post("/login")
 def login(body: AuthRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).first()
-    if not user or not pwd_context.verify(body.password, user.hashed_password):
+    if not user or not _verify(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     return _session(user)
 
