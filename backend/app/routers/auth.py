@@ -7,10 +7,12 @@ import jwt
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
+from starlette.requests import Request
 
 from app.auth import require_user
 from app.config import settings
 from app.database import get_db
+from app.limiter import limiter
 from app.models import User
 
 router = APIRouter()
@@ -48,7 +50,8 @@ def _session(user: User) -> dict:
 
 
 @router.post("/register", status_code=201)
-def register(body: AuthRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def register(request: Request, body: AuthRequest, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     if len(body.password) < 6:
@@ -65,7 +68,8 @@ def register(body: AuthRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login")
-def login(body: AuthRequest, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, body: AuthRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).first()
     if not user or not _verify(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -73,7 +77,8 @@ def login(body: AuthRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/me")
-def me(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+@limiter.limit("30/minute")
+def me(request: Request, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     user_id = require_user(authorization)
     user = db.query(User).filter(User.id == user_id).first()
     if not user:

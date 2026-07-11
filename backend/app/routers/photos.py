@@ -71,7 +71,7 @@ async def upload_photo_endpoint(
 
 
 @router.get("/{place_id}")
-@limiter.limit("10/minute")
+@limiter.limit("30/minute")
 def list_photos(
     request: Request,
     place_id: str,
@@ -89,7 +89,7 @@ def list_photos(
 
 
 @router.delete("/{photo_id}", status_code=204)
-@limiter.limit("10/minute")
+@limiter.limit("30/minute")
 def delete_photo(
     request: Request,
     photo_id: str,

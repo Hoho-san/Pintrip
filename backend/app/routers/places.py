@@ -78,7 +78,7 @@ async def _with_signed_cover_async(place: Place) -> dict:
 
 
 @router.get("/")
-@limiter.limit("10/minute")
+@limiter.limit("60/minute")
 async def list_places(
     request: Request,
     authorization: Optional[str] = Header(None),
@@ -97,7 +97,7 @@ async def list_places(
 
 
 @router.post("/", status_code=201)
-@limiter.limit("10/minute")
+@limiter.limit("60/minute")
 async def create_place(
     request: Request,
     body: PlaceCreate,
@@ -125,7 +125,7 @@ async def create_place(
 
 
 @router.get("/{place_id}")
-@limiter.limit("10/minute")
+@limiter.limit("60/minute")
 async def get_place(
     request: Request,
     place_id: str,
@@ -140,7 +140,7 @@ async def get_place(
 
 
 @router.put("/{place_id}")
-@limiter.limit("10/minute")
+@limiter.limit("60/minute")
 async def update_place(
     request: Request,
     place_id: str,
@@ -160,7 +160,7 @@ async def update_place(
 
 
 @router.delete("/{place_id}", status_code=204)
-@limiter.limit("10/minute")
+@limiter.limit("60/minute")
 def delete_place(
     request: Request,
     place_id: str,
