@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from './lib/supabase'
 import { placesApi, photosApi } from './lib/api'
 import MapPage from './pages/MapPage'
@@ -13,6 +13,12 @@ export default function App() {
   const [places, setPlaces] = useState([])
   const [photos, setPhotos] = useState([])
   const [appLoading, setAppLoading] = useState(true)
+  const initialLoadDone = useRef(false)
+
+  // Supabase emits a fresh session object on every token refresh (e.g. when
+  // the tab regains focus), so effects must key on the user id, not the
+  // session object, or they re-run on every refresh.
+  const userId = session?.user?.id
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
@@ -23,10 +29,11 @@ export default function App() {
   }, [])
 
   const loadAppData = useCallback(async () => {
-    if (!session) {
+    if (!userId) {
       setPlaces([])
       setPhotos([])
       setAppLoading(false)
+      initialLoadDone.current = false
       return
     }
 
@@ -60,8 +67,9 @@ export default function App() {
       console.error(err)
     } finally {
       setAppLoading(false)
+      initialLoadDone.current = true
     }
-  }, [session])
+  }, [userId])
 
   useEffect(() => {
     loadAppData()
@@ -107,7 +115,7 @@ export default function App() {
     )
   }, [])
 
-  if (session === undefined || (session && appLoading)) {
+  if (session === undefined || (session && appLoading && !initialLoadDone.current)) {
     return (
       <div className="flex h-screen items-center justify-center bg-surface-bg dark:bg-dark-bg">
         <div className="flex flex-col items-center gap-3">
