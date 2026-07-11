@@ -15,7 +15,7 @@ from groq import Groq
 from PIL import Image
 
 from app.config import settings
-from app.services.storage import create_signed_photo_url, BUCKET
+from app.services.storage import create_signed_photo_url
 
 client = Groq(api_key=settings.groq_api_key)
 
@@ -28,14 +28,10 @@ MAX_DIMENSION = 1280
 
 def _storage_path_from_url(file_url: str) -> str:
     parsed = urlparse(file_url)
-    path = parsed.path
-    public_prefix = f"/storage/v1/object/public/{BUCKET}/"
-    sign_prefix   = f"/storage/v1/object/sign/{BUCKET}/"
-    if public_prefix in path:
-        return path.split(public_prefix, 1)[1]
-    if sign_prefix in path:
-        return path.split(sign_prefix, 1)[1]
-    raise ValueError(f"Unsupported Supabase storage URL: {file_url}")
+    if parsed.scheme == "s3":
+        # s3://bucket-name/user_id/file.jpg → user_id/file.jpg
+        return parsed.path.lstrip("/")
+    raise ValueError(f"Unsupported storage URL: {file_url}")
 
 
 def _mime_type_from_path(storage_path: str) -> str:
@@ -44,12 +40,19 @@ def _mime_type_from_path(storage_path: str) -> str:
 
 
 async def _fetch_image_bytes(file_url: str) -> tuple[bytes, str]:
-    storage_path = _storage_path_from_url(file_url)
-    signed_url   = create_signed_photo_url(storage_path, expires_in=120)
-    mime_type    = _mime_type_from_path(storage_path)
+    parsed = urlparse(file_url)
+    if parsed.scheme in ("http", "https"):
+        # Already a fetchable URL (pre-signed S3 URL from frontend)
+        fetch_url = file_url
+        storage_path = parsed.path
+    else:
+        # s3:// URI — generate a signed URL first
+        storage_path = _storage_path_from_url(file_url)
+        fetch_url = create_signed_photo_url(storage_path, expires_in=120)
 
+    mime_type = _mime_type_from_path(storage_path)
     async with httpx.AsyncClient(timeout=30) as c:
-        resp = await c.get(signed_url)
+        resp = await c.get(fetch_url)
         resp.raise_for_status()
         return resp.content, mime_type
 
