@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { supabase } from "../../lib/supabase";
+import { authApi } from "../../lib/auth";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function AiChatBot() {
   const [isOpen, setIsOpen] = useState(false);
@@ -26,7 +26,7 @@ export default function AiChatBot() {
     setLoading(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = authApi.getSession();
       const token = session?.access_token || "";
 
       const res = await fetch(`${BACKEND_URL}/ai/chat`, {
