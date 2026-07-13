@@ -44,6 +44,18 @@
   --color-primary:       #01696f;
   --color-primary-hover: #0c4e54;
   --color-primary-light: #cedcd8;
+
+  /* shadcn/ui tokens (RGB channels) — light mode, mapped from the palette above */
+  --background:         247 246 242; /* #f7f6f2 */
+  --foreground:          40  37  29; /* #28251d */
+  --popover:            249 248 245; /* #f9f8f5 */
+  --popover-foreground:  40  37  29;
+  --muted:              243 240 236; /* #f3f0ec */
+  --muted-foreground:   122 121 116; /* #7a7974 */
+  --accent:             243 240 236;
+  --accent-foreground:   40  37  29;
+  --border:             212 209 202; /* #d4d1ca */
+  --ring:                 1 105 111; /* #01696f */
 }
 
 /* ── Dark mode token overrides ──────────────────────────────── */
@@ -62,6 +74,18 @@
   --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.25);
   --shadow-md: 0 4px 12px oklch(0 0 0 / 0.35);
   --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.45);
+
+  /* shadcn/ui tokens (RGB channels) — dark mode */
+  --background:          28  27  25; /* #1c1b19 */
+  --foreground:         205 204 202; /* #cdccca */
+  --popover:             32  31  29; /* #201f1d */
+  --popover-foreground: 205 204 202;
+  --muted:               34  33  31; /* #22211f */
+  --muted-foreground:   121 120 118; /* #797876 */
+  --accent:              45  44  42; /* #2d2c2a */
+  --accent-foreground:  205 204 202;
+  --border:              57  56  54; /* #393836 */
+  --ring:                79 152 163; /* #4f98a3 */
 }
 
 /* ── Base reset ─────────────────────────────────────────────── */
@@ -90,7 +114,7 @@ body {
   border-radius: var(--radius-sm);
 }
 
-/* ── Leaflet polaroid pin ───────────────────────────────────── */
+/* ── Map polaroid pin ───────────────────────────────────────── */
 .polaroid-pin {
   background: #fff;
   padding: 4px 4px 14px;
@@ -143,7 +167,7 @@ body {
   display: block;
 }
 
-/* ── Leaflet polaroid pin — empty state ─────────────────────── */
+/* ── Map polaroid pin — empty state ─────────────────────────── */
 .polaroid-pin-empty {
   background: #fff;
   padding: 4px 4px 14px;
@@ -260,13 +284,20 @@ body {
   background-size: 200% 100%;
 }
 
-/* ── Leaflet dark mode tiles ────────────────────────────────── */
-.dark .leaflet-tile {
-  filter: brightness(0.65) invert(1) contrast(1.2) hue-rotate(200deg) saturate(0.4) brightness(0.75);
+/* ── MapLibre (mapcn) overrides ─────────────────────────────── */
+.maplibregl-popup-content {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
 }
 
-.dark .leaflet-container {
-  background: #171614;
+.maplibregl-popup-tip {
+  display: none !important;
+}
+
+.maplibregl-map {
+  background: var(--color-bg);
 }
 
 /* ── Reduced motion ─────────────────────────────────────────── */

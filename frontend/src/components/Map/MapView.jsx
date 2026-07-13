@@ -1,39 +1,32 @@
 import { useEffect } from 'react'
-import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
+import { Map, MapControls, useMap } from '@/components/ui/map'
 import PhotoPin from './PhotoPin'
 import { useAppContext } from '../../ThemeContext'
-import 'leaflet/dist/leaflet.css'
-import L from 'leaflet'
-
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
-import markerIcon from 'leaflet/dist/images/marker-icon.png'
-import markerShadow from 'leaflet/dist/images/marker-shadow.png'
-
-delete L.Icon.Default.prototype._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconUrl: markerIcon,
-  iconRetinaUrl: markerIcon2x,
-  shadowUrl: markerShadow,
-})
 
 function ClickHandler({ onMapClick }) {
-  useMapEvents({
-    click: (e) => onMapClick(e.latlng.lat, e.latlng.lng),
-  })
+  const { map } = useMap()
+
+  useEffect(() => {
+    if (!map) return
+    const handleClick = (e) => onMapClick(e.lngLat.lat, e.lngLat.lng)
+    map.on('click', handleClick)
+    return () => map.off('click', handleClick)
+  }, [map, onMapClick])
+
   return null
 }
 
 function AutoFocusCountry({ places = [] }) {
-  const map = useMap()
+  const { map } = useMap()
 
   useEffect(() => {
-    if (!places.length) return
+    if (!map || !places.length) return
 
     const grouped = places.reduce((acc, place) => {
       const country = place.country || 'Unknown'
       if (!acc[country]) acc[country] = { photoCount: 0, coords: [] }
       acc[country].photoCount += place.photo_count || 0
-      acc[country].coords.push([place.lat, place.lng])
+      acc[country].coords.push([place.lng, place.lat])
       return acc
     }, {})
 
@@ -43,14 +36,22 @@ function AutoFocusCountry({ places = [] }) {
     const coordsToUse =
       topCountry.photoCount > 0
         ? topCountry.coords
-        : places.map((p) => [p.lat, p.lng])
+        : places.map((p) => [p.lng, p.lat])
 
     if (coordsToUse.length === 1) {
-      map.flyTo(coordsToUse[0], 6, { duration: 1.2 })
+      map.flyTo({ center: coordsToUse[0], zoom: 6, duration: 1200 })
       return
     }
 
-    map.fitBounds(L.latLngBounds(coordsToUse), { padding: [48, 48], maxZoom: 6 })
+    const lngs = coordsToUse.map(([lng]) => lng)
+    const lats = coordsToUse.map(([, lat]) => lat)
+    map.fitBounds(
+      [
+        [Math.min(...lngs), Math.min(...lats)],
+        [Math.max(...lngs), Math.max(...lats)],
+      ],
+      { padding: 48, maxZoom: 6 }
+    )
   }, [places, map])
 
   return null
@@ -60,19 +61,15 @@ export default function MapView({ places = [], onMapClick, onPinClick, selectedI
   const { markerStyle } = useAppContext()
 
   return (
-    <MapContainer
-      center={[20, 0]}
+    <Map
+      center={[0, 20]}
       zoom={2}
       minZoom={2}
-      maxBounds={[[-90, -180], [90, 180]]}
-      maxBoundsViscosity={1.0}
+      // A full ±180 span crashes MapLibre (maplibre-gl-js#6148), so stay just inside it
+      maxBounds={[[-179.9, -85], [179.9, 85]]}
       className="w-full h-full"
-      zoomControl={false}
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+      <MapControls position="bottom-right" />
 
       <ClickHandler onMapClick={onMapClick} />
       <AutoFocusCountry places={places} />
@@ -86,6 +83,6 @@ export default function MapView({ places = [], onMapClick, onPinClick, selectedI
           markerStyle={markerStyle}
         />
       ))}
-    </MapContainer>
+    </Map>
   )
 }

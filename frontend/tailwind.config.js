@@ -18,7 +18,24 @@ export default {
           offset:  '#f3f0ec',
           dynamic: '#e6e4df',
         },
-        border:  '#d4d1ca',
+        border:  'rgb(var(--border) / <alpha-value>)',
+        // shadcn/ui tokens (used by components/ui/*, e.g. the mapcn map) —
+        // RGB channels defined in index.css, themed via the .dark class
+        background: 'rgb(var(--background) / <alpha-value>)',
+        foreground: 'rgb(var(--foreground) / <alpha-value>)',
+        popover: {
+          DEFAULT:      'rgb(var(--popover) / <alpha-value>)',
+          foreground:   'rgb(var(--popover-foreground) / <alpha-value>)',
+        },
+        muted: {
+          DEFAULT:      'rgb(var(--muted) / <alpha-value>)',
+          foreground:   'rgb(var(--muted-foreground) / <alpha-value>)',
+        },
+        accent: {
+          DEFAULT:      'rgb(var(--accent) / <alpha-value>)',
+          foreground:   'rgb(var(--accent-foreground) / <alpha-value>)',
+        },
+        ring: 'rgb(var(--ring) / <alpha-value>)',
         text: {
           DEFAULT: '#28251d',
           muted:   '#7a7974',
