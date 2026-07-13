@@ -14,6 +14,7 @@ from app.config import settings
 from app.database import get_db
 from app.limiter import limiter
 from app.models import User
+from app.services.turnstile import verify_turnstile_token
 
 router = APIRouter()
 
@@ -29,6 +30,10 @@ def _verify(password: str, hashed: str) -> bool:
 class AuthRequest(BaseModel):
     email: EmailStr
     password: str
+
+
+class RegisterRequest(AuthRequest):
+    turnstile_token: str
 
 
 def _create_token(user_id: str, email: str) -> str:
@@ -51,7 +56,9 @@ def _session(user: User) -> dict:
 
 @router.post("/register", status_code=201)
 @limiter.limit("5/minute")
-def register(request: Request, body: AuthRequest, db: Session = Depends(get_db)):
+async def register(request: Request, body: RegisterRequest, db: Session = Depends(get_db)):
+    if not await verify_turnstile_token(body.turnstile_token, request.client.host if request.client else None):
+        raise HTTPException(status_code=400, detail="CAPTCHA verification failed")
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     if len(body.password) < 6:

@@ -11,10 +11,15 @@ from app import models
 
 models.Base.metadata.create_all(bind=engine)
 
+is_production = settings.environment.lower() == "production"
+
 app = FastAPI(
     title="Pintrip API",
     version="1.0.0",
     description="Backend for the Pintrip travel photo map app",
+    docs_url=None if is_production else "/docs",
+    redoc_url=None if is_production else "/redoc",
+    openapi_url=None if is_production else "/openapi.json",
 )
 
 app.state.limiter = limiter

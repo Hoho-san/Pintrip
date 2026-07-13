@@ -37,8 +37,8 @@ async function post(path, body) {
 }
 
 export const authApi = {
-  async signUp({ email, password }) {
-    const session = await post('/auth/register', { email, password })
+  async signUp({ email, password, turnstileToken }) {
+    const session = await post('/auth/register', { email, password, turnstile_token: turnstileToken })
     storeSession(session)
     return session
   },

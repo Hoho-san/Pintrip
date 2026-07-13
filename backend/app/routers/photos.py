@@ -2,7 +2,8 @@
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, Header, UploadFile
+from fastapi import APIRouter, Depends, Header, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 
@@ -11,9 +12,27 @@ from app.database import get_db
 from app.limiter import limiter
 from app.models import Photo
 from app.services.exif import extract_gps
-from app.services.storage import create_signed_photo_url, delete_photos, upload_photo
+from app.services.storage import (
+    build_storage_path,
+    create_presigned_upload_url,
+    create_signed_photo_url,
+    delete_photos,
+    download_photo_bytes,
+    public_url_for,
+)
 
 router = APIRouter()
+
+
+class PresignRequest(BaseModel):
+    filename: str
+    content_type: str
+    place_id: str
+
+
+class ConfirmRequest(BaseModel):
+    storage_path: str
+    place_id: str
 
 
 def _require_user(authorization: Optional[str]) -> str:
@@ -36,29 +55,43 @@ def _with_signed_url(photo: Photo) -> dict:
     }
 
 
-@router.post("/upload", status_code=201)
+@router.post("/presign")
 @limiter.limit("10/minute")
-async def upload_photo_endpoint(
+def presign_upload(
     request: Request,
-    file: UploadFile = File(...),
-    place_id: str = Form(...),
+    body: PresignRequest,
+    authorization: Optional[str] = Header(None),
+):
+    user_id = _require_user(authorization)
+    if not body.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Only image uploads are allowed")
+
+    storage_path = build_storage_path(body.filename, user_id)
+    upload_url = create_presigned_upload_url(storage_path, body.content_type)
+    return {"upload_url": upload_url, "storage_path": storage_path}
+
+
+@router.post("/confirm", status_code=201)
+@limiter.limit("10/minute")
+def confirm_upload(
+    request: Request,
+    body: ConfirmRequest,
     authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db),
 ):
     user_id = _require_user(authorization)
-    image_bytes = await file.read()
+    if not body.storage_path.startswith(f"{user_id}/"):
+        raise HTTPException(status_code=403, detail="Invalid storage path")
+
+    image_bytes = download_photo_bytes(body.storage_path)
     gps = extract_gps(image_bytes)
-    storage_path, public_url = upload_photo(
-        image_bytes=image_bytes,
-        filename=file.filename or "photo.jpg",
-        user_id=user_id,
-    )
+
     photo = Photo(
         id=str(uuid.uuid4()),
-        place_id=place_id,
+        place_id=body.place_id,
         user_id=user_id,
-        storage_path=storage_path,
-        public_url=public_url,
+        storage_path=body.storage_path,
+        public_url=public_url_for(body.storage_path),
         exif_lat=gps.get("lat") if gps else None,
         exif_lng=gps.get("lng") if gps else None,
     )

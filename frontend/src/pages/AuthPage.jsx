@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { authApi } from '../lib/auth'
+
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY
 
 export default function AuthPage({ onSignIn }) {
   const [mode,     setMode]     = useState('signin')
@@ -8,13 +10,48 @@ export default function AuthPage({ onSignIn }) {
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState(null)
   const [message,  setMessage]  = useState(null)
+  const [captchaToken, setCaptchaToken] = useState(null)
+
+  const turnstileRef = useRef(null)
+  const widgetId     = useRef(null)
+
+  // Render the Turnstile widget when switching into signup mode
+  useEffect(() => {
+    if (mode !== 'signup' || !TURNSTILE_SITE_KEY) return
+
+    let cancelled = false
+    function renderWidget() {
+      if (cancelled || !turnstileRef.current || !window.turnstile) return
+      widgetId.current = window.turnstile.render(turnstileRef.current, {
+        sitekey: TURNSTILE_SITE_KEY,
+        callback: (token) => setCaptchaToken(token),
+        'expired-callback': () => setCaptchaToken(null),
+      })
+    }
+
+    if (window.turnstile) {
+      renderWidget()
+    } else {
+      const interval = setInterval(() => {
+        if (window.turnstile) { clearInterval(interval); renderWidget() }
+      }, 100)
+      return () => { cancelled = true; clearInterval(interval) }
+    }
+
+    return () => {
+      cancelled = true
+      if (widgetId.current && window.turnstile) window.turnstile.remove(widgetId.current)
+      widgetId.current = null
+      setCaptchaToken(null)
+    }
+  }, [mode])
 
   async function handleSubmit(e) {
     e.preventDefault()
     setLoading(true); setError(null); setMessage(null)
     try {
       if (mode === 'signup') {
-        const session = await authApi.signUp({ email, password })
+        const session = await authApi.signUp({ email, password, turnstileToken: captchaToken })
         onSignIn(session)
       } else {
         const session = await authApi.signIn({ email, password })
@@ -22,6 +59,10 @@ export default function AuthPage({ onSignIn }) {
       }
     } catch (err) {
       setError(err.message)
+      if (mode === 'signup' && window.turnstile && widgetId.current) {
+        window.turnstile.reset(widgetId.current)
+        setCaptchaToken(null)
+      }
     } finally {
       setLoading(false)
     }
@@ -97,6 +138,11 @@ export default function AuthPage({ onSignIn }) {
               />
             </div>
 
+            {/* Turnstile CAPTCHA (signup only) */}
+            {mode === 'signup' && TURNSTILE_SITE_KEY && (
+              <div ref={turnstileRef} />
+            )}
+
             {/* Feedback messages */}
             {error   && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
             {message && <p className="text-xs text-primary dark:text-dark-primary">{message}</p>}
@@ -104,7 +150,7 @@ export default function AuthPage({ onSignIn }) {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (mode === 'signup' && !!TURNSTILE_SITE_KEY && !captchaToken)}
               className="w-full rounded-md bg-primary dark:bg-dark-primary
                          hover:bg-primary-hover dark:hover:bg-dark-primary-hover
                          text-white py-2 text-sm font-medium

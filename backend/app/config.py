@@ -18,8 +18,14 @@ class Settings(BaseSettings):
     # AI
     groq_api_key: str | None = None
 
+    # Cloudflare Turnstile (bot protection on /auth/register)
+    turnstile_secret_key: str | None = None
+
     # CORS
     allowed_origins: str = "http://localhost:5173"
+
+    # Environment
+    environment: str = "production"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -42,15 +42,26 @@ export const photosApi = {
   delete: (photoId)   => request('DELETE', `/photos/${photoId}`),
 
   /**
-   * Upload a single File object to a place.
+   * Upload a single File object to a place via a presigned S3 PUT — the file
+   * goes straight from the browser to S3, bypassing the backend entirely.
    * @param {File}   file
    * @param {string} placeId
    */
   upload: async (file, placeId) => {
-    const form = new FormData()
-    form.append('file',     file)
-    form.append('place_id', placeId)
-    return request('POST', '/photos/upload', form)
+    const { upload_url, storage_path } = await request('POST', '/photos/presign', {
+      filename: file.name,
+      content_type: file.type || 'application/octet-stream',
+      place_id: placeId,
+    })
+
+    const putRes = await fetch(upload_url, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type || 'application/octet-stream' },
+      body: file,
+    })
+    if (!putRes.ok) throw new Error('Upload to storage failed')
+
+    return request('POST', '/photos/confirm', { storage_path, place_id: placeId })
   },
 }
 

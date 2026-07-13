@@ -1,4 +1,3 @@
-import mimetypes
 import uuid
 from functools import lru_cache
 
@@ -17,23 +16,26 @@ def _s3():
     )
 
 
-def upload_photo(image_bytes: bytes, filename: str, user_id: str) -> tuple[str, str]:
+def build_storage_path(filename: str, user_id: str) -> str:
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "jpg"
-    unique_name = f"{uuid.uuid4().hex}.{ext}"
-    storage_path = f"{user_id}/{unique_name}"
+    return f"{user_id}/{uuid.uuid4().hex}.{ext}"
 
-    content_type, _ = mimetypes.guess_type(filename)
-    if not content_type:
-        content_type = f"image/{ext if ext != 'jpg' else 'jpeg'}"
 
-    _s3().put_object(
-        Bucket=settings.aws_s3_bucket,
-        Key=storage_path,
-        Body=image_bytes,
-        ContentType=content_type,
+def public_url_for(storage_path: str) -> str:
+    return f"s3://{settings.aws_s3_bucket}/{storage_path}"
+
+
+def create_presigned_upload_url(storage_path: str, content_type: str, expires_in: int = 300) -> str:
+    return _s3().generate_presigned_url(
+        "put_object",
+        Params={"Bucket": settings.aws_s3_bucket, "Key": storage_path, "ContentType": content_type},
+        ExpiresIn=expires_in,
     )
 
-    return storage_path, f"s3://{settings.aws_s3_bucket}/{storage_path}"
+
+def download_photo_bytes(storage_path: str) -> bytes:
+    obj = _s3().get_object(Bucket=settings.aws_s3_bucket, Key=storage_path)
+    return obj["Body"].read()
 
 
 def create_signed_photo_url(storage_path: str, expires_in: int = 3600) -> str:
