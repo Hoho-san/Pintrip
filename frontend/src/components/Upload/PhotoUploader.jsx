@@ -14,7 +14,7 @@ const JPEG_QUALITY   = 0.78 // 0.0–1.0 — 0.78 gives ~70–80% size reduction
  * @param {File} file
  * @returns {Promise<File>} compressed File object
  */
-async function compressImage(file) {
+export async function compressImage(file) {
   return new Promise((resolve, reject) => {
     const img = new Image()
     const url = URL.createObjectURL(file)

@@ -76,11 +76,12 @@ export const aiApi = {
     request('POST', '/ai/caption', { image_url: imageUrl, photo_id: photoId }),
 
   /**
-   * Generate a travel story from all photo captions for a place.
+   * Generate a meaningful, philosophical caption for a place from its cover
+   * photo + name, country, notes and tags.
    * @param {string} placeId
    */
-  story: (placeId) =>
-    request('POST', '/ai/story', { place_id: placeId }),
+  placeCaption: (placeId) =>
+    request('POST', '/ai/place-caption', { place_id: placeId }),
 
   /**
    * The user's full travel profile (places, photos, tags, captions, stats) —

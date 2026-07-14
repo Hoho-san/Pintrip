@@ -11,11 +11,10 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     const root = document.documentElement
-    if (theme === 'dark') {
-      root.classList.add('dark')
-    } else {
-      root.classList.remove('dark')
-    }
+    // Keep an explicit class for BOTH themes: the mapcn Map watches these and
+    // ignores "no class at all", so only removing 'dark' leaves the map dark.
+    root.classList.toggle('dark', theme === 'dark')
+    root.classList.toggle('light', theme !== 'dark')
   }, [theme])
 
   const toggle = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))

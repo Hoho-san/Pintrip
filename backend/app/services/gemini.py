@@ -147,31 +147,53 @@ async def generate_caption(image_url: str) -> dict:
     return _parse_caption_json(text)
 
 
-async def generate_story(place_id: str, captions: list[str]) -> str:
+async def generate_place_caption(image_url: str, place: dict) -> str:
+    """One meaningful, philosophical caption from the place's photo + its details."""
     if not settings.groq_api_key:
         raise ValueError("GROQ_API_KEY is not configured.")
 
-    if not captions:
-        return "I captured a few quiet moments here — each photo telling its own story."
+    image_bytes, _ = await _fetch_image_bytes(image_url)
+    compressed, mime_type = _compress_image(image_bytes)
+    b64_image = base64.standard_b64encode(compressed).decode("utf-8")
+    data_url = f"data:{mime_type};base64,{b64_image}"
 
-    captions_text = "\n".join(f"- {c}" for c in captions if c.strip())
+    context_lines = [f"Place: {place.get('name', 'Unknown')}"]
+    if place.get("country"):
+        context_lines.append(f"Country: {place['country']}")
+    if place.get("visited_at"):
+        context_lines.append(f"Visited: {place['visited_at']}")
+    if place.get("tags"):
+        context_lines.append(f"Tags: {', '.join(place['tags'])}")
+    if place.get("notes"):
+        context_lines.append(f"Traveler's notes: {place['notes'][:500]}")
 
     prompt = (
-        f"You are a travel diarist. Based on these photo captions from a single trip location:\n\n"
-        f"{captions_text}\n\n"
-        "Write a short personal travel diary entry (max 150 words). "
-        "First person, past tense, no bullet points."
+        "This photo was taken on a trip.\n"
+        + "\n".join(context_lines)
+        + "\n\nLook at the photo and write ONE meaningful, philosophical caption "
+        "(1-2 sentences) that connects what is actually in the image with the "
+        "spirit of this place and the traveler's notes. Reflective, poetic, "
+        "quotable — like something worth engraving under the photo. "
+        "No hashtags, no emojis, no quotation marks. Respond with the caption only."
     )
 
-    response = client.chat.completions.create(
-        model=TEXT_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        max_completion_tokens=300,
+    response = await asyncio.to_thread(
+        client.chat.completions.create,
+        model=VISION_MODEL,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                ],
+            }
+        ],
+        max_completion_tokens=150,
         temperature=0.9,
     )
 
-    msg = response.choices[0].message
-    content = msg.content
+    content = response.choices[0].message.content
 
     if isinstance(content, str):
         text = content.strip()
@@ -188,9 +210,65 @@ async def generate_story(place_id: str, captions: list[str]) -> str:
         text = str(content).strip()
 
     if not text:
-        raise ValueError(f"Groq returned empty story response: {response}")
+        raise ValueError(f"Groq returned empty caption response: {response}")
 
-    return text
+    return text.strip('"').strip()
+
+
+# ── Trip suggestions ──────────────────────────────────────────────────────────
+
+async def generate_trip_suggestions(travel_context: str) -> dict:
+    """Suggest new destinations (with coordinates) based on the user's travel history."""
+    if not settings.groq_api_key:
+        raise ValueError("GROQ_API_KEY is not configured.")
+
+    prompt = (
+        "You are a travel assistant for Pintrip, a travel photo map app.\n\n"
+        f"{travel_context}\n\n"
+        "Suggest exactly 3 travel destinations the user has NOT already visited, "
+        "matched to their apparent tastes (or great first trips if they have no history). "
+        "Respond ONLY with valid JSON in this shape:\n"
+        '{"intro": "One friendly sentence introducing the suggestions.",'
+        '"suggestions": [{"name": "City or place name", "country": "Country", '
+        '"lat": 0.0, "lng": 0.0, '
+        '"reason": "One sentence on why this trip fits them and what to do there."}]}\n'
+        "lat/lng must be the destination's real decimal coordinates."
+    )
+
+    response = await asyncio.to_thread(
+        client.chat.completions.create,
+        model=TEXT_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        max_completion_tokens=600,
+        temperature=0.8,
+        response_format={"type": "json_object"},
+    )
+
+    raw = response.choices[0].message.content.strip()
+    data = json.loads(raw)
+
+    suggestions = []
+    for s in data.get("suggestions", []):
+        try:
+            suggestions.append(
+                {
+                    "name": str(s["name"]),
+                    "country": str(s.get("country", "")),
+                    "lat": float(s["lat"]),
+                    "lng": float(s["lng"]),
+                    "reason": str(s.get("reason", "")),
+                }
+            )
+        except (KeyError, TypeError, ValueError):
+            continue  # drop malformed entries rather than failing the request
+
+    if not suggestions:
+        raise ValueError(f"Groq returned no usable suggestions: {raw}")
+
+    return {
+        "intro": str(data.get("intro", "Here are some ideas for your next trip:")),
+        "suggestions": suggestions,
+    }
 
 
 # ── AI Chat ───────────────────────────────────────────────────────────────────

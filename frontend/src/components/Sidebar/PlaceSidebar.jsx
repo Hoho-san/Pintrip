@@ -6,7 +6,7 @@
  *  - AI caption for cover photo
  *  - Photo grid for the place
  *  - Photo upload area
- *  - AI story button
+ *  - AI caption button (philosophical caption from photo + place details)
  *  - Delete pin button
  */
 import { useEffect, useState, useCallback } from 'react'
@@ -16,8 +16,8 @@ import PhotoUploader from '../Upload/PhotoUploader'
 export default function PlaceSidebar({ place, onClose, onPlaceUpdated, onPlaceDeleted, onPhotoUploaded }) {
   const [photos, setPhotos] = useState([])
   const [loading, setLoading] = useState(true)
-  const [story, setStory] = useState(null)
-  const [genStory, setGenStory] = useState(false)
+  const [caption, setCaption] = useState(null)
+  const [genCaption, setGenCaption] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [tab, setTab] = useState('photos')
 
@@ -25,7 +25,7 @@ export default function PlaceSidebar({ place, onClose, onPlaceUpdated, onPlaceDe
     if (!place) return
     setLoading(true)
     setPhotos([])
-    setStory(null)
+    setCaption(null)
     setTab('photos')
     photosApi.list(place.id)
       .then(setPhotos)
@@ -77,18 +77,18 @@ export default function PlaceSidebar({ place, onClose, onPlaceUpdated, onPlaceDe
     }
   }
 
-  const generateStory = async () => {
-    setGenStory(true)
-    setStory(null)
+  const generateCaption = async () => {
+    setGenCaption(true)
+    setCaption(null)
     try {
-      const res = await aiApi.story(place.id)
-      setStory(res.story)
-      setTab('story')
+      const res = await aiApi.placeCaption(place.id)
+      setCaption(res.caption)
+      setTab('caption')
     } catch (err) {
-      console.error('Story failed:', err)
-      setStory('Could not generate story. Try uploading more photos first.')
+      console.error('Caption failed:', err)
+      setCaption('Could not generate a caption. Try uploading a photo first.')
     } finally {
-      setGenStory(false)
+      setGenCaption(false)
     }
   }
 
@@ -160,7 +160,7 @@ export default function PlaceSidebar({ place, onClose, onPlaceUpdated, onPlaceDe
       </div>
 
       <div className="flex border-b border-border px-4 flex-shrink-0">
-        {['photos', 'notes', 'story'].map((t) => (
+        {['photos', 'notes', 'caption'].map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -231,27 +231,29 @@ export default function PlaceSidebar({ place, onClose, onPlaceUpdated, onPlaceDe
           </div>
         )}
 
-        {tab === 'story' && (
+        {tab === 'caption' && (
           <div className="space-y-3">
-            {story ? (
-              <p className="text-sm text-text italic leading-relaxed">{story}</p>
+            {caption ? (
+              <blockquote className="text-sm text-text italic leading-relaxed border-l-2 border-primary/40 pl-3">
+                {caption}
+              </blockquote>
             ) : (
               <p className="text-xs text-text-muted">
-                Generate an AI travel diary entry from your photo captions.
+                Create a caption instantly.
               </p>
             )}
             <button
-              onClick={generateStory}
-              disabled={genStory || photos.length === 0}
+              onClick={generateCaption}
+              disabled={genCaption || photos.length === 0}
               className="w-full rounded-md bg-primary text-white py-2 text-sm font-medium
                          hover:bg-primary-hover disabled:opacity-40 transition-colors
                          flex items-center justify-center gap-2"
             >
-              {genStory ? <><Spinner /> Generating…</> : '✨ Generate Travel Story'}
+              {genCaption ? <><Spinner /> Generating…</> : 'Generate Caption'}
             </button>
             {photos.length === 0 && (
               <p className="text-xs text-text-faint text-center">
-                Upload photos first to generate a story.
+                Upload a photo first to generate a caption.
               </p>
             )}
           </div>

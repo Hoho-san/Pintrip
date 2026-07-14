@@ -9,7 +9,13 @@ from app.database import get_db
 from app.limiter import limiter
 from app.models import Photo, Place
 from app.routers.places import _require_user
-from app.services.gemini import generate_caption, generate_story, generate_chat_reply
+from app.services.gemini import (
+    generate_caption,
+    generate_place_caption,
+    generate_chat_reply,
+    generate_trip_suggestions,
+)
+from app.services.storage import create_signed_photo_url
 
 router = APIRouter()
 
@@ -96,7 +102,7 @@ class CaptionRequest(BaseModel):
     photo_id: Optional[str] = None
 
 
-class StoryRequest(BaseModel):
+class PlaceCaptionRequest(BaseModel):
     place_id: str
 
 
@@ -131,28 +137,50 @@ async def caption_endpoint(
         raise HTTPException(status_code=500, detail=f"Caption generation failed: {str(e)}")
 
 
-@router.post("/story")
+@router.post("/place-caption")
 @limiter.limit("10/minute")
-async def story_endpoint(
+async def place_caption_endpoint(
     request: Request,
-    body: StoryRequest,
+    body: PlaceCaptionRequest,
     authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db),
 ):
+    """Philosophical caption for a place from its cover photo + name/country/notes/tags."""
     user_id = _require_user(authorization)
-    photos = (
-        db.query(Photo)
-        .filter(Photo.place_id == body.place_id, Photo.user_id == user_id)
-        .all()
+    place = (
+        db.query(Place)
+        .filter(Place.id == body.place_id, Place.user_id == user_id)
+        .first()
     )
-    if not photos:
+    if not place:
+        raise HTTPException(status_code=404, detail="Place not found")
+
+    image_path = place.cover_photo
+    if not image_path:
+        first_photo = (
+            db.query(Photo)
+            .filter(Photo.place_id == place.id, Photo.user_id == user_id)
+            .first()
+        )
+        image_path = first_photo.storage_path if first_photo else None
+    if not image_path:
         raise HTTPException(status_code=404, detail="No photos found for this place")
-    captions = [p.ai_caption for p in photos if p.ai_caption]
+
     try:
-        story = await generate_story(place_id=body.place_id, captions=captions)
-        return {"story": story}
+        image_url = create_signed_photo_url(image_path, expires_in=300)
+        caption = await generate_place_caption(
+            image_url,
+            {
+                "name": place.name,
+                "country": place.country,
+                "visited_at": place.visited_at,
+                "notes": place.notes,
+                "tags": place.tags or [],
+            },
+        )
+        return {"caption": caption}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Story generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Caption generation failed: {str(e)}")
 
 
 @router.get("/context")
@@ -165,6 +193,22 @@ async def context_endpoint(
     """The user's full travel profile — places, photos, tags, captions, stats."""
     user_id = _require_user(authorization)
     return _build_travel_context(db, user_id)
+
+
+@router.post("/suggest-trip")
+@limiter.limit("10/minute")
+async def suggest_trip_endpoint(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
+    """3 personalized next-trip suggestions with coordinates, based on travel history."""
+    user_id = _require_user(authorization)
+    travel_context = _format_travel_context(_build_travel_context(db, user_id))
+    try:
+        return await generate_trip_suggestions(travel_context)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Trip suggestion failed: {str(e)}")
 
 
 @router.post("/chat")

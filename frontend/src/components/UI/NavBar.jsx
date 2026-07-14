@@ -58,8 +58,8 @@ export default function NavBar({ session, onSignOut }) {
       {/* Nav links */}
       <nav className="flex items-center gap-1 ml-2">
         <NavLink to="/"        label="Map"     active={loc.pathname === '/'} />
-        <NavLink to="/gallery" label="Gallery" active={loc.pathname === '/gallery'} />
         <NavLink to="/arc"     label="Arc"     active={loc.pathname === '/arc'} />
+        <NavLink to="/gallery" label="Gallery" active={loc.pathname === '/gallery'} />
       </nav>
 
       {/* Right side */}

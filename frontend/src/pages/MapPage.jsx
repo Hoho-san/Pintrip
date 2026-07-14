@@ -26,21 +26,23 @@ export default function MapPage({
     [photos]
   )
 
-  const handleMapClick = useCallback((lat, lng) => {
-    if (selectedPlaceId) {
-      setSelectedPlaceId(null)
-      return
-    }
-    setPendingPin({ lat, lng })
+  // Single click only deselects; double-click opens the add-pin form
+  const handleMapClick = useCallback(() => {
+    if (selectedPlaceId) setSelectedPlaceId(null)
   }, [selectedPlaceId])
+
+  const handleMapDblClick = useCallback((lat, lng) => {
+    setSelectedPlaceId(null)
+    setPendingPin({ lat, lng })
+  }, [])
 
   const handlePinClick = useCallback((place) => {
     setSelectedPlaceId(place.id)
     setPendingPin(null)
   }, [])
 
-  const handleCreated = useCallback((place) => {
-    onPlaceCreated?.(place)
+  const handleCreated = useCallback((place, uploadedPhotos = []) => {
+    onPlaceCreated?.(place, uploadedPhotos)
     setPendingPin(null)
     setSelectedPlaceId(place.id)
   }, [onPlaceCreated])
@@ -65,6 +67,7 @@ export default function MapPage({
         <MapView
           places={places}
           onMapClick={handleMapClick}
+          onMapDblClick={handleMapDblClick}
           onPinClick={handlePinClick}
           selectedId={selectedPlace?.id}
         />
@@ -75,7 +78,7 @@ export default function MapPage({
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[900]
                           bg-surface-bg/90 backdrop-blur border border-border rounded-full
                           px-4 py-2 text-sm text-text-muted pointer-events-none shadow-sm">
-            Click anywhere on the map to drop your first pin 📍
+            Double-click anywhere on the map to drop your first pin 📍
           </div>
         )}
       </div>

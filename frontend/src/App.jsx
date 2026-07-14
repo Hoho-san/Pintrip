@@ -72,9 +72,20 @@ export default function App() {
     loadAppData()
   }, [loadAppData])
 
-  const handlePlaceCreated = useCallback((place) => {
-    const newPlace = { ...place, photo_count: 0 }
+  const handlePlaceCreated = useCallback((place, uploadedPhotos = []) => {
+    const newPlace = { ...place, photo_count: uploadedPhotos.length }
     setPlaces((prev) => [newPlace, ...prev])
+
+    if (uploadedPhotos.length) {
+      const enriched = uploadedPhotos.map((photo) => ({
+        ...photo,
+        placeId: place.id,
+        placeName: place.name,
+      }))
+      setPhotos((prev) =>
+        [...enriched, ...prev].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      )
+    }
   }, [])
 
   const handlePlaceUpdated = useCallback((updated) => {

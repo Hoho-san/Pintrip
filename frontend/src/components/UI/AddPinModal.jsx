@@ -1,11 +1,15 @@
 /**
  * AddPinModal.jsx
- * Opens when the user clicks an empty spot on the map.
- * Accepts place name, date visited, notes, tags.
- * Photo upload is handled after the place is created.
+ * Opens when the user double-clicks an empty spot on the map.
+ * Accepts place name, date visited, notes, tags and photos — photos are
+ * uploaded right after the place is created, before the modal closes.
  */
 import { useState, useEffect } from 'react'
-import { placesApi } from '../../lib/api'
+import { useDropzone } from 'react-dropzone'
+import { placesApi, photosApi } from '../../lib/api'
+import { compressImage } from '../Upload/PhotoUploader'
+
+const MAX_SIZE_MB = 20
 
 export default function AddPinModal({ lat, lng, onClose, onCreated, initialDate }) {
   const [form, setForm] = useState({
@@ -15,12 +19,34 @@ export default function AddPinModal({ lat, lng, onClose, onCreated, initialDate 
     notes:      '',
     tags:       '',
   })
+  const [photos,  setPhotos]  = useState([]) // [{ file, url }] — uploaded on submit
+  const [progress, setProgress] = useState(null) // { done, total } while uploading
   const [saving,  setSaving]  = useState(false)
   const [error,   setError]   = useState(null)
   const [showConfirm, setShowConfirm] = useState(false)
 
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: (accepted) =>
+      setPhotos((prev) => [
+        ...prev,
+        ...accepted.map((file) => ({ file, url: URL.createObjectURL(file) })),
+      ]),
+    accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.heic'] },
+    maxSize: MAX_SIZE_MB * 1024 * 1024,
+    multiple: true,
+    disabled: saving,
+  })
+
+  const removePhoto = (url) => {
+    URL.revokeObjectURL(url)
+    setPhotos((prev) => prev.filter((p) => p.url !== url))
+  }
+
+  // Release preview object URLs when the modal unmounts
+  useEffect(() => () => photos.forEach((p) => URL.revokeObjectURL(p.url)), []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Check if user has typed anything
-  const isDirty = form.name || form.country || form.notes || form.tags || form.visited_at
+  const isDirty = form.name || form.country || form.notes || form.tags || form.visited_at || photos.length > 0
 
   function handleAttemptClose() {
     if (isDirty) {
@@ -63,11 +89,42 @@ export default function AddPinModal({ lat, lng, onClose, onCreated, initialDate 
         notes:      form.notes.trim() || null,
         tags,
       })
-      onCreated(place)
+
+      // Upload the selected photos before closing the modal
+      const uploaded = []
+      let failed = 0
+      if (photos.length) {
+        setProgress({ done: 0, total: photos.length })
+        for (const item of photos) {
+          try {
+            let file = item.file
+            try { file = await compressImage(item.file) } catch { /* fall back to original */ }
+            uploaded.push(await photosApi.upload(file, place.id))
+          } catch {
+            failed += 1
+          }
+          setProgress((p) => ({ ...p, done: p.done + 1 }))
+        }
+      }
+
+      // First photo becomes the pin's cover (same rule as PlaceSidebar)
+      if (uploaded.length) {
+        const first = uploaded[0]
+        placesApi.update(place.id, { cover_photo: first.storage_path }).catch(() => {})
+        place.cover_photo = first.storage_path
+        place.cover_signed_url = first.signed_url || first.public_url
+      }
+
+      if (failed) {
+        // Place + remaining photos were saved; just tell the user before closing
+        alert(`${failed} photo${failed === 1 ? '' : 's'} failed to upload — you can retry from the place's sidebar.`)
+      }
+      onCreated(place, uploaded)
     } catch (err) {
       setError(err.message)
     } finally {
       setSaving(false)
+      setProgress(null)
     }
   }
 
@@ -130,6 +187,49 @@ export default function AddPinModal({ lat, lng, onClose, onCreated, initialDate 
             </div>
             {field('Tags', 'tags', 'text', 'beach, food, architecture (comma-separated)')}
 
+            {/* Photos — selected now, uploaded on submit */}
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">Photos</label>
+              <div
+                {...getRootProps()}
+                className={`border-2 border-dashed rounded-lg p-3 text-center cursor-pointer
+                            transition-colors duration-150
+                            ${isDragActive
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-primary/60 bg-surface'}`}
+              >
+                <input {...getInputProps()} />
+                <p className="text-xs text-text-muted">
+                  {isDragActive ? 'Drop photos here…' : 'Drag & drop photos, or click to select'}
+                </p>
+                <p className="text-[10px] text-text-faint mt-0.5">
+                  Uploaded when you add the pin · max {MAX_SIZE_MB} MB each
+                </p>
+              </div>
+
+              {photos.length > 0 && (
+                <div className="grid grid-cols-4 gap-2 mt-2">
+                  {photos.map((item) => (
+                    <div key={item.url} className="relative rounded-md overflow-hidden aspect-square bg-surface-offset group">
+                      <img src={item.url} alt="" className="w-full h-full object-cover" />
+                      {!saving && (
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(item.url)}
+                          aria-label="Remove photo"
+                          className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60 text-white
+                                     flex items-center justify-center text-[10px] leading-none
+                                     opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {error && <p className="text-xs text-red-600">{error}</p>}
 
             <div className="flex gap-2 pt-1">
@@ -141,7 +241,11 @@ export default function AddPinModal({ lat, lng, onClose, onCreated, initialDate 
               <button type="submit" disabled={saving}
                 className="flex-1 rounded-md bg-primary text-white py-2 text-sm font-medium
                            hover:bg-primary-hover disabled:opacity-50 transition-colors">
-                {saving ? 'Saving…' : 'Add Pin'}
+                {saving
+                  ? progress
+                    ? `Uploading ${progress.done}/${progress.total}…`
+                    : 'Saving…'
+                  : 'Add Pin'}
               </button>
             </div>
           </form>
