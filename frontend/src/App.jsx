@@ -4,6 +4,7 @@ import { authApi } from './lib/auth'
 import { placesApi, photosApi } from './lib/api'
 import MapPage from './pages/MapPage'
 import GalleryPage from './pages/GalleryPage'
+import ArcPage from './pages/ArcPage'
 import AuthPage from './pages/AuthPage'
 import NavBar from './components/UI/NavBar'
 import AiChatBot from './components/AI/AiChatBot'  // ← ADD THIS
@@ -144,6 +145,17 @@ export default function App() {
                 onPlaceDeleted={handlePlaceDeleted}
                 onPhotoUploaded={handlePhotoUploaded}
               />
+            ) : (
+              <Navigate to="/auth" />
+            )
+          }
+        />
+
+        <Route
+          path="/arc"
+          element={
+            session ? (
+              <ArcPage session={session} places={places} />
             ) : (
               <Navigate to="/auth" />
             )

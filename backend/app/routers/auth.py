@@ -33,7 +33,9 @@ class AuthRequest(BaseModel):
 
 
 class RegisterRequest(AuthRequest):
-    turnstile_token: str
+    # Optional so local dev works with the Turnstile widget disabled; when
+    # TURNSTILE_SECRET_KEY is set, verify_turnstile_token rejects a missing token.
+    turnstile_token: str | None = None
 
 
 def _create_token(user_id: str, email: str) -> str:

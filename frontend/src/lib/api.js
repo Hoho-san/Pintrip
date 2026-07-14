@@ -81,4 +81,10 @@ export const aiApi = {
    */
   story: (placeId) =>
     request('POST', '/ai/story', { place_id: placeId }),
+
+  /**
+   * The user's full travel profile (places, photos, tags, captions, stats) —
+   * the same context the chat bot is personalized with.
+   */
+  context: () => request('GET', '/ai/context'),
 }

@@ -195,19 +195,28 @@ async def generate_story(place_id: str, captions: list[str]) -> str:
 
 # ── AI Chat ───────────────────────────────────────────────────────────────────
 
-async def generate_chat_reply(messages: list) -> str:
+async def generate_chat_reply(messages: list, travel_context: str | None = None) -> str:
     """Multi-turn travel assistant chat using Groq."""
     if not settings.groq_api_key:
         raise ValueError("GROQ_API_KEY is not configured.")
 
+    system_prompt = (
+        "You are a friendly travel assistant for Pintrip, a travel photo map app. "
+        "Help users plan trips, discover destinations, write travel captions, "
+        "and get the most out of their travel memories. Keep replies concise and helpful."
+    )
+    if travel_context:
+        system_prompt += (
+            "\n\nHere is this user's travel history from their Pintrip map. "
+            "Use it to personalize your answers — reference the places they've been, "
+            "suggest destinations that fit their tastes, and answer questions about "
+            "their own trips:\n" + travel_context
+        )
+
     groq_messages = [
         {
             "role": "system",
-            "content": (
-                "You are a friendly travel assistant for Pintrip, a travel photo map app. "
-                "Help users plan trips, discover destinations, write travel captions, "
-                "and get the most out of their travel memories. Keep replies concise and helpful."
-            ),
+            "content": system_prompt,
         }
     ]
 
