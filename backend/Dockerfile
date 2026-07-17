@@ -17,6 +17,12 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 COPY . .
 
+RUN useradd -m appuser && chown -R appuser /app
+USER appuser
+
 EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request as u; u.urlopen('http://localhost:8000/health', timeout=2)" || exit 1
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
