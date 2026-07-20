@@ -1,10 +1,13 @@
 name: Deploy
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
 
 jobs:
   build-and-push:
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -13,19 +16,21 @@ jobs:
       image: ${{ steps.meta.outputs.tags }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: meta
-        run: echo "tags=ghcr.io/${{ github.repository_owner }}/pintrip-backend:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+        run: echo "tags=ghcr.io/${{ github.repository_owner }}/pintrip-backend:${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
         with:
           context: backend
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/pintrip-backend:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/pintrip-backend:${{ github.event.workflow_run.head_sha }}
             ghcr.io/${{ github.repository_owner }}/pintrip-backend:latest
 
   deploy:
