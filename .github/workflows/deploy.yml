@@ -1,0 +1,64 @@
+name: Deploy
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        run: echo "tags=ghcr.io/${{ github.repository_owner }}/pintrip-backend:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/pintrip-backend:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/pintrip-backend:latest
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker pull ghcr.io/${{ github.repository_owner }}/pintrip-backend:latest
+            docker stop pintrip || true
+            docker rm pintrip || true
+            docker run -d --name pintrip \
+              --restart unless-stopped \
+              -p 8000:8000 \
+              --env-file ~/Pintrip/backend/.env \
+              ghcr.io/${{ github.repository_owner }}/pintrip-backend:latest
+            docker image prune -f
+
+            for i in $(seq 1 15); do
+              if curl -sf http://localhost:8000/health > /dev/null; then
+                echo "==> Health check OK"
+                docker logs --tail 10 pintrip
+                exit 0
+              fi
+              sleep 1
+            done
+
+            echo "!!! Backend did not become healthy within 15s — recent logs:"
+            docker logs --tail 40 pintrip
+            exit 1
