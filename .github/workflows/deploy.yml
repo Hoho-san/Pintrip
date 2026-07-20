@@ -14,6 +14,7 @@ jobs:
       packages: write
     outputs:
       image: ${{ steps.meta.outputs.tags }}
+      repo_owner: ${{ steps.meta.outputs.owner }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,14 +25,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: meta
-        run: echo "tags=ghcr.io/${{ github.repository_owner }}/pintrip-backend:${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+        run: |
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "owner=$owner" >> "$GITHUB_OUTPUT"
+          echo "tags=ghcr.io/$owner/pintrip-backend:${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
         with:
           context: backend
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/pintrip-backend:${{ github.event.workflow_run.head_sha }}
-            ghcr.io/${{ github.repository_owner }}/pintrip-backend:latest
+            ghcr.io/${{ steps.meta.outputs.owner }}/pintrip-backend:${{ github.event.workflow_run.head_sha }}
+            ghcr.io/${{ steps.meta.outputs.owner }}/pintrip-backend:latest
 
   deploy:
     runs-on: ubuntu-latest
@@ -45,14 +49,14 @@ jobs:
           script: |
             set -e
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker pull ghcr.io/${{ github.repository_owner }}/pintrip-backend:latest
+            docker pull ghcr.io/${{ needs.build-and-push.outputs.repo_owner }}/pintrip-backend:latest
             docker stop pintrip || true
             docker rm pintrip || true
             docker run -d --name pintrip \
               --restart unless-stopped \
               -p 8000:8000 \
               --env-file ~/Pintrip/backend/.env \
-              ghcr.io/${{ github.repository_owner }}/pintrip-backend:latest
+              ghcr.io/${{ needs.build-and-push.outputs.repo_owner }}/pintrip-backend:latest
             docker image prune -f
 
             for i in $(seq 1 15); do
