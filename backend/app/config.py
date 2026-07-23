@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     # Cloudflare Turnstile (bot protection on /auth/register)
     turnstile_secret_key: str | None = None
 
+    # Google Sign-In (ID-token verification)
+    google_client_id: str | None = None
+
     # CORS
     allowed_origins: str = "http://localhost:5173"
 

@@ -49,6 +49,12 @@ export const authApi = {
     return session
   },
 
+  async signInWithGoogle(credential) {
+    const session = await post('/auth/google', { credential })
+    storeSession(session)
+    return session
+  },
+
   signOut() {
     clearSession()
   },

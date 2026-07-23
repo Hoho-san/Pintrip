@@ -10,7 +10,8 @@ class User(Base):
 
     id = Column(String(36), primary_key=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
-    hashed_password = Column(String(255), nullable=False)
+    hashed_password = Column(String(255), nullable=True)   # null for Google-only users
+    google_sub = Column(String(255), unique=True, nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 

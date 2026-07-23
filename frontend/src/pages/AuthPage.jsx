@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { authApi } from '../lib/auth'
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY
+const GOOGLE_CLIENT_ID   = import.meta.env.VITE_GOOGLE_CLIENT_ID
 
 export default function AuthPage({ onSignIn }) {
   const [mode,     setMode]     = useState('signin')
@@ -14,6 +15,7 @@ export default function AuthPage({ onSignIn }) {
 
   const turnstileRef = useRef(null)
   const widgetId     = useRef(null)
+  const googleBtnRef = useRef(null)
 
   // Render the Turnstile widget when switching into signup mode
   useEffect(() => {
@@ -45,6 +47,45 @@ export default function AuthPage({ onSignIn }) {
       setCaptchaToken(null)
     }
   }, [mode])
+
+  // Initialize Google Identity Services and render the "Continue with Google"
+  // button. The GSI script loads async, so poll for window.google (same pattern
+  // as the Turnstile widget above). Works for both signin and signup modes.
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return
+
+    let cancelled = false
+    function init() {
+      if (cancelled || !googleBtnRef.current || !window.google) return
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: async ({ credential }) => {
+          setError(null); setLoading(true)
+          try {
+            const session = await authApi.signInWithGoogle(credential)
+            onSignIn(session)
+          } catch (err) {
+            setError(err.message)
+          } finally {
+            setLoading(false)
+          }
+        },
+      })
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        theme: 'outline', size: 'large', width: 320, text: 'continue_with',
+      })
+    }
+
+    if (window.google) {
+      init()
+    } else {
+      const interval = setInterval(() => {
+        if (window.google) { clearInterval(interval); init() }
+      }, 100)
+      return () => { cancelled = true; clearInterval(interval) }
+    }
+    return () => { cancelled = true }
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -90,6 +131,18 @@ export default function AuthPage({ onSignIn }) {
           <h2 className="text-base font-medium text-text dark:text-dark-text mb-4">
             {mode === 'signin' ? 'Sign in to your account' : 'Create an account'}
           </h2>
+
+          {/* Continue with Google */}
+          {GOOGLE_CLIENT_ID && (
+            <>
+              <div ref={googleBtnRef} className="flex justify-center mb-4" />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-px flex-1 bg-border dark:bg-dark-border" />
+                <span className="text-xs text-text-muted dark:text-dark-muted">or</span>
+                <div className="h-px flex-1 bg-border dark:bg-dark-border" />
+              </div>
+            </>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-3">
 

@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+import logging
 import uuid
 
 import bcrypt
@@ -9,6 +10,9 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
+
 from app.auth import require_user
 from app.config import settings
 from app.database import get_db
@@ -17,6 +21,7 @@ from app.models import User
 from app.services.turnstile import verify_turnstile_token
 
 router = APIRouter()
+logger = logging.getLogger("uvicorn.error")
 
 
 def _hash(password: str) -> str:
@@ -80,8 +85,55 @@ async def register(request: Request, body: RegisterRequest, db: Session = Depend
 @limiter.limit("10/minute")
 def login(request: Request, body: AuthRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).first()
-    if not user or not _verify(body.password, user.hashed_password):
+    if not user or not user.hashed_password or not _verify(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    return _session(user)
+
+
+class GoogleAuthRequest(BaseModel):
+    credential: str  # the Google ID token (JWT) from Google Identity Services
+
+
+@router.post("/google")
+@limiter.limit("10/minute")
+def google_auth(request: Request, body: GoogleAuthRequest, db: Session = Depends(get_db)):
+    if not settings.google_client_id:
+        raise HTTPException(status_code=500, detail="Google sign-in is not configured")
+
+    # verify_oauth2_token checks the signature, expiry, issuer, and that the
+    # token's audience matches our client id — raises ValueError on any failure.
+    try:
+        claims = google_id_token.verify_oauth2_token(
+            body.credential,
+            google_requests.Request(),
+            settings.google_client_id,
+            clock_skew_in_seconds=10,
+        )
+    except ValueError as exc:
+        logger.warning("Google ID token verification failed: %s", exc)
+        raise HTTPException(status_code=401, detail="Invalid Google credential")
+
+    if not claims.get("email_verified"):
+        raise HTTPException(status_code=401, detail="Google email not verified")
+
+    google_sub = claims["sub"]
+    email = claims["email"].lower()
+
+    # Match on Google id first, then fall back to email (links an existing
+    # password account to this Google identity on first Google sign-in).
+    user = (
+        db.query(User).filter(User.google_sub == google_sub).first()
+        or db.query(User).filter(User.email == email).first()
+    )
+
+    if user is None:
+        user = User(id=str(uuid.uuid4()), email=email, google_sub=google_sub)
+        db.add(user)
+    elif user.google_sub is None:
+        user.google_sub = google_sub
+
+    db.commit()
+    db.refresh(user)
     return _session(user)
 
 
